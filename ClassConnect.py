@@ -2,100 +2,124 @@ import streamlit as st
 import requests
 import time
 
-# --- 1. CONFIGURATION (METS TON LIEN ICI) ---
-URL_FB = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/.json"
+# --- 1. CONFIGURATION ---
+# Ton lien Firebase (vérifie bien le .json à la fin)
+URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/"
+URL_MSG = f"{URL_BASE}messages.json"
+URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-# --- 2. CONFIGURATION DE LA PAGE & THÈME ---
-# Le mode sombre/clair se règle aussi dans les paramètres Streamlit (Haut à droite > Settings > Theme)
-st.set_page_config(page_title="BCF Ultimate", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="BCF Network", page_icon="🚀")
 
-# --- 3. INITIALISATION DE LA MÉMOIRE (SESSION) ---
-if 'page' not in st.session_state:
-    st.session_state.page = "login"
-if 'pseudo' not in st.session_state:
-    st.session_state.pseudo = ""
+# --- 2. INITIALISATION DE LA SESSION ---
+if 'user' not in st.session_state:
+    st.session_state.user = None
+if 'page_auth' not in st.session_state:
+    st.session_state.page_auth = "login"
 
-# --- 4. FONCTIONS UTILES ---
-def envoyer_msg(destinataire, texte):
-    data = {
-        "expediteur": st.session_state.pseudo,
-        "destinataire": destinataire, # "mondial" ou le nom d'un ami
-        "msg": texte,
-        "date": time.time()
-    }
-    requests.post(URL_FB, json=data)
+# --- 3. FONCTIONS DE LA "WAR MACHINE" ---
+def recuperer_utilisateurs():
+    r = requests.get(URL_USERS).json()
+    return r if r else {}
 
-# --- 5. PAGE DE CONNEXION (SIGN IN) ---
-if st.session_state.page == "login":
-    st.title("🔐 Connexion BCF")
-    user = st.text_input("Pseudo")
-    mdp = st.text_input("Mot de passe", type="password")
+def creer_compte(pseudo, mdp):
+    users = recuperer_utilisateurs()
+    if pseudo in users:
+        return False
+    # On enregistre le nouvel utilisateur
+    requests.patch(URL_USERS, json={pseudo: {"mdp": mdp}})
+    return True
+
+def verifier_connexion(pseudo, mdp):
+    users = recuperer_utilisateurs()
+    if pseudo in users and users[pseudo]["mdp"] == mdp:
+        return True
+    return False
+
+# --- 4. INTERFACE D'AUTHENTIFICATION ---
+if st.session_state.user is None:
+    st.title("🛡️ BCF Security Center")
     
-    if st.button("Se connecter"):
-        # Tu peux changer "1234" par ton vrai mot de passe secret
-        if mdp == "BCF2026": 
-            st.session_state.pseudo = user
-            st.session_state.page = "accueil"
-            st.rerun()
-        else:
-            st.error("Mot de passe incorrect !")
+    tab1, tab2 = st.tabs(["Se connecter", "Créer un compte"])
+    
+    with tab1:
+        u_log = st.text_input("Pseudo", key="log_u")
+        p_log = st.text_input("Mot de passe", type="password", key="log_p")
+        if st.button("Connexion 🔑"):
+            if verifier_connexion(u_log, p_log):
+                st.session_state.user = u_log
+                st.success(f"Bienvenue {u_log} !")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Pseudo ou mot de passe incorrect.")
 
-# --- 6. INTERFACE PRINCIPALE ---
+    with tab2:
+        u_reg = st.text_input("Choisis un pseudo", key="reg_u")
+        p_reg = st.text_input("Choisis un mot de passe", type="password", key="reg_p")
+        if st.button("S'inscrire 📝"):
+            if u_reg and p_reg:
+                if creer_compte(u_reg, p_reg):
+                    st.success("Compte créé ! Connecte-toi maintenant.")
+                else:
+                    st.error("Ce pseudo est déjà pris.")
+            else:
+                st.warning("Remplis toutes les cases !")
+
+# --- 5. INTERFACE PRINCIPALE (UNE FOIS CONNECTÉ) ---
 else:
-    st.sidebar.title(f"⚽ {st.session_state.pseudo}")
-    menu = st.sidebar.radio("Navigation", ["Chat Mondial", "Amis (Privé)", "Paramètres"])
+    st.sidebar.title(f"⚽ {st.session_state.user}")
+    menu = st.sidebar.selectbox("Navigation", ["🌍 Chat Mondial", "🔒 Messages Privés", "🎨 Thèmes & Infos"])
 
-    # --- SECTION : CHAT MONDIAL ---
-    if menu == "Chat Mondial":
-        st.header("🌍 Chat Mondial")
-        with st.container():
-            nouveau_msg = st.text_input("Ton message mondial...")
-            if st.button("Envoyer 🚀"):
-                if nouveau_msg:
-                    envoyer_msg("mondial", nouveau_msg)
-                    st.rerun()
-        
+    # LOGIQUE CHAT
+    if menu == "🌍 Chat Mondial":
+        st.header("Chat Mondial")
+        msg = st.text_input("Message...", placeholder="Dis quelque chose à la classe")
+        if st.button("Envoyer"):
+            if msg:
+                requests.post(URL_MSG, json={
+                    "u": st.session_state.user,
+                    "m": msg,
+                    "d": "mondial",
+                    "t": time.time()
+                })
+                st.rerun()
+
         st.divider()
-        # Affichage
-        r = requests.get(URL_FB).json()
-        if r:
-            for key in reversed(list(r.keys())):
-                item = r[key]
-                if isinstance(item, dict) and item.get("destinataire") == "mondial":
+        data = requests.get(URL_MSG).json()
+        if data:
+            for k in reversed(list(data.keys())):
+                v = data[k]
+                if v.get("d") == "mondial":
                     with st.chat_message("user"):
-                        st.write(f"**{item['expediteur']}**: {item['msg']}")
+                        st.write(f"**{v['u']}** : {v['m']}")
 
-    # --- SECTION : AMIS (PRIVÉ) ---
-    elif menu == "Amis (Privé)":
-        st.header("👥 Discussions Privées")
-        ami = st.text_input("Nom de l'ami avec qui discuter :")
-        
+    elif menu == "🔒 Messages Privés":
+        st.header("Messages Privés")
+        ami = st.text_input("Nom de l'ami :")
         if ami:
-            nouveau_prive = st.text_input(f"Message pour {ami}...")
+            msg_p = st.text_input(f"Message pour {ami}...")
             if st.button("Envoyer en privé"):
-                if nouveau_prive:
-                    envoyer_msg(ami, nouveau_prive)
-                    st.success("Message envoyé !")
-            
-            st.divider()
-            # Affichage uniquement des messages entre TOI et l'AMI
-            r = requests.get(URL_FB).json()
-            if r:
-                for key in reversed(list(r.keys())):
-                    item = r[key]
-                    if isinstance(item, dict):
-                        exp = item.get("expediteur")
-                        dest = item.get("destinataire")
-                        # On ne montre que si c'est entre vous deux
-                        if (exp == st.session_state.pseudo and dest == ami) or (exp == ami and dest == st.session_state.pseudo):
-                            with st.chat_message("user"):
-                                st.write(f"**{exp}**: {item['msg']}")
+                requests.post(URL_MSG, json={
+                    "u": st.session_state.user,
+                    "m": msg_p,
+                    "d": ami,
+                    "t": time.time()
+                })
+                st.success("Envoyé !")
 
-    # --- SECTION : PARAMÈTRES ---
-    elif menu == "Paramètres":
-        st.header("⚙️ Paramètres")
-        st.write("Pour changer le **Mode Sombre/Clair** :")
-        st.info("Clique sur les 3 points en haut à droite > Settings > Theme > Light ou Dark.")
+            st.divider()
+            data = requests.get(URL_MSG).json()
+            if data:
+                for k in reversed(list(data.keys())):
+                    v = data[k]
+                    # On affiche si : (Moi vers Ami) OU (Ami vers Moi)
+                    if (v.get("u") == st.session_state.user and v.get("d") == ami) or \
+                       (v.get("u") == ami and v.get("d") == st.session_state.user):
+                        with st.chat_message("user"):
+                            st.write(f"**{v['u']}** : {v['m']}")
+
+    elif menu == "🎨 Thèmes & Infos":
+        st.info("💡 Mode Sombre/Clair : Va dans Settings > Theme en haut à droite.")
         if st.button("Se déconnecter"):
-            st.session_state.page = "login"
+            st.session_state.user = None
             st.rerun()
