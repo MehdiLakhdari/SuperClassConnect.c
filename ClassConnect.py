@@ -7,76 +7,79 @@ URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect - Red & White Edition", page_icon="❤️", layout="centered")
+st.set_page_config(page_title="ClassConnect - Dark Mode", page_icon="🌙", layout="centered")
 
-# --- 2. STYLE PERSONNALISÉ (ROUGE, BLANC & VIOLET) ---
+# --- 2. STYLE "EYE CARE" (SOMBRE & APAISANT) ---
 st.markdown("""
     <style>
-    /* Fond global blanc propre */
-    .stApp { background-color: #ffffff; color: #333333; }
+    /* Fond global : Gris Anthracite très sombre */
+    .stApp { 
+        background-color: #121212; 
+        color: #E0E0E0; 
+    }
     
-    /* Barre latérale en rouge */
-    [data-testid="stSidebar"] { background-color: #d32f2f; color: white; }
-    [data-testid="stSidebar"] * { color: white !important; }
+    /* Barre latérale : Gris Ardoise */
+    [data-testid="stSidebar"] { 
+        background-color: #1E1E1E; 
+        border-right: 1px solid #333333;
+    }
+    [data-testid="stSidebar"] * { color: #BB86FC !important; }
 
-    /* Boutons personnalisés (Rouge avec texte Blanc) */
+    /* Boutons : Violet Pastel (Moins agressif que le rouge) */
     .stButton>button { 
-        background-color: #d32f2f; 
+        background-color: #3700B3; 
         color: white; 
-        border-radius: 8px; 
+        border-radius: 10px; 
         border: none;
-        padding: 10px 20px;
+        padding: 12px;
         font-weight: bold;
-        width: 100%;
+        transition: 0.3s;
     }
     .stButton>button:hover {
-        background-color: #b71c1c;
-        border: none;
-        color: white;
+        background-color: #BB86FC;
+        color: #121212;
     }
 
-    /* Cartes de message (Fond Blanc, Bordure Rouge) */
+    /* Cartes de message : Gris Foncé avec bordure Bleue */
     .message-card { 
-        background-color: #f8f9fa; 
+        background-color: #1E1E1E; 
         padding: 15px; 
         border-radius: 12px; 
-        border-left: 6px solid #d32f2f; 
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+        border-left: 5px solid #03DAC6; /* Vert d'eau apaisant */
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
         margin-bottom: 15px; 
-        color: #333333;
+        color: #E0E0E0;
     }
 
-    /* Logo Violet Sombre */
-    .logo-text {
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 45px;
-        font-weight: bold;
-        color: #4B0082; /* Violet Sombre (Indigo) */
+    /* Titres et Textes */
+    h1, h2, h3 { color: #BB86FC !important; }
+    
+    /* Logo stylé */
+    .logo-container {
         text-align: center;
-        margin-bottom: 5px;
+        padding: 20px;
+        background: linear-gradient(45deg, #3700B3, #03DAC6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 60px;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGO DE L'APPLICATION ---
+# --- 3. LOGO ---
 def afficher_logo():
-    st.markdown("<div class='logo-text'>CC</div>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#4B0082; font-weight:bold; margin-top:-15px;'>ClassConnect</p>", unsafe_allow_html=True)
+    st.markdown("<div class='logo-container'>CC</div>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#03DAC6; font-weight:bold; margin-top:-20px;'>ClassConnect Pro</p>", unsafe_allow_html=True)
 
-# --- 4. INITIALISATION DE LA SESSION ---
+# --- 4. INITIALISATION ---
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# --- 5. FONCTIONS TECHNIQUES ---
+# --- 5. FONCTIONS ---
 def recuperer_utilisateurs():
     r = requests.get(URL_USERS).json()
     return r if r else {}
-
-def creer_compte(pseudo, mdp):
-    users = recuperer_utilisateurs()
-    if pseudo in users: return False
-    requests.patch(URL_USERS, json={pseudo: {"mdp": mdp}})
-    return True
 
 def verifier_connexion(pseudo, mdp):
     users = recuperer_utilisateurs()
@@ -92,7 +95,7 @@ def ajouter_like(msg_key):
 # --- 6. AUTHENTIFICATION ---
 if st.session_state.user is None:
     afficher_logo()
-    tab1, tab2 = st.tabs(["🔒 Connexion", "📝 Inscription"])
+    tab1, tab2 = st.tabs(["🔑 Connexion", "📝 Inscription"])
     
     with tab1:
         u_log = st.text_input("Pseudo", key="log_u")
@@ -101,27 +104,26 @@ if st.session_state.user is None:
             if verifier_connexion(u_log, p_log):
                 st.session_state.user = u_log
                 st.rerun()
-            else: st.error("Erreur de pseudo/mot de passe")
+            else: st.error("Identifiants incorrects.")
 
     with tab2:
-        u_reg = st.text_input("Pseudo souhaité", key="reg_u")
-        p_reg = st.text_input("Mot de passe souhaité", type="password", key="reg_p")
+        u_reg = st.text_input("Nouveau Pseudo", key="reg_u")
+        p_reg = st.text_input("Nouveau Mot de passe", type="password", key="reg_p")
         if st.button("Créer mon compte"):
             if u_reg and p_reg:
-                if creer_compte(u_reg, p_reg): st.success("Compte créé ! Connecte-toi.")
-                else: st.error("Pseudo déjà utilisé.")
+                requests.patch(URL_USERS, json={u_reg: {"mdp": p_reg}})
+                st.success("Compte prêt !")
 
-# --- 7. APPLICATION PRINCIPALE ---
+# --- 7. APP PRINCIPALE ---
 else:
     afficher_logo()
-    
     st.sidebar.markdown(f"### 👤 {st.session_state.user}")
-    menu = st.sidebar.radio("Menu", ["🌍 Chat Mondial", "💬 Messages Privés", "🚪 Déconnexion"])
+    menu = st.sidebar.radio("Navigation", ["🌍 Chat Mondial", "💬 Privé", "🚪 Sortir"])
 
     if menu == "🌍 Chat Mondial":
-        st.subheader("🌍 Mur de la classe")
-        msg = st.text_input("Ton message...", key="global_input")
-        if st.button("Publier ❤️"):
+        st.subheader("🌍 Discussion Mondiale")
+        msg = st.text_input("Message...", key="g_input")
+        if st.button("Publier 🚀"):
             if msg:
                 requests.post(URL_MSG, json={"u": st.session_state.user, "m": msg, "d": "mondial", "t": time.time(), "l": 0})
                 st.rerun()
@@ -137,16 +139,14 @@ else:
                         ajouter_like(k)
                         st.rerun()
 
-    elif menu == "💬 Messages Privés":
-        st.subheader("💬 Conversations Privées")
-        ami = st.text_input("Discuter avec :")
+    elif menu == "💬 Privé":
+        ami = st.text_input("Ami :")
         if ami:
-            msg_p = st.text_input(f"Message pour {ami}...", key="priv_input")
+            msg_p = st.text_input("Message privé...", key="p_input")
             if st.button("Envoyer 🔒"):
                 requests.post(URL_MSG, json={"u": st.session_state.user, "m": msg_p, "d": ami, "t": time.time(), "l": 0})
                 st.rerun()
-
-            st.divider()
+            
             data = requests.get(URL_MSG).json()
             if data:
                 for k in reversed(list(data.keys())):
@@ -157,6 +157,6 @@ else:
                             ajouter_like(k)
                             st.rerun()
 
-    elif menu == "🚪 Déconnexion":
+    elif menu == "🚪 Sortir":
         st.session_state.user = None
         st.rerun()
