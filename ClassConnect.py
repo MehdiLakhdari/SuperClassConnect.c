@@ -7,7 +7,7 @@ URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect Unique", page_icon="🌈", layout="centered")
+st.set_page_config(page_title="ClassConnect Total", page_icon="⚽", layout="centered")
 
 # --- 2. ÉTAT DE LA SESSION ---
 if 'theme' not in st.session_state: st.session_state.theme = "sombre"
@@ -27,7 +27,7 @@ st.markdown(f"""
     .pfp-large {{ width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid {btn}; display: block; margin: 0 auto; }}
     .pfp-mini {{ width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; }}
     
-    /* Bouton Standard (Profil / Mur) */
+    /* Bouton Standard */
     .stButton>button {{ border-radius: 8px; font-weight: bold; background-color: {btn}; color: white; border: none; width: 100%; }}
     
     /* STYLE UNIQUE : BOUTON ENVOYER (BLEU) */
@@ -41,7 +41,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. FONCTIONS ---
+# --- 4. FONCTIONS Outils ---
 def charger(url):
     try:
         r = requests.get(url)
@@ -52,15 +52,40 @@ def get_pfp(pseudo, users_data):
     u_info = users_data.get(pseudo, {})
     return u_info.get("pfp") if u_info.get("pfp") else "https://cdn-icons-png.flaticon.com/512/149/149071.png"
 
-# --- 5. PAGES ---
+# --- 5. PAGES INDÉPENDANTES (Structure Logique) ---
+
+def page_connexion_inscription():
+    st.markdown("<div class='sidebar-logo'>⚽ ClassConnect</div>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["Connexion", "Inscription"])
+    with t1:
+        u = st.text_input("Pseudo", key="l_u")
+        p = st.text_input("Mot de passe", type="password", key="l_p")
+        if st.button("Entrer", type="primary", key="btn_login"):
+            users_data = charger(URL_USERS)
+            if u in users_data and str(users_data[u].get("mdp")) == str(p):
+                st.session_state.user = u
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects.")
+    with t2:
+        nu = st.text_input("Pseudo", key="r_u")
+        np = st.text_input("Mot de passe", type="password", key="r_p")
+        if st.button("S'inscrire", type="primary", key="btn_reg"):
+            if nu and np:
+                requests.patch(URL_USERS, json={nu: {"mdp": np, "pfp": "", "amis": {}}})
+                st.success("Compte créé ! Connecte-toi.")
+            else:
+                st.warning("Remplis tous les champs.")
 
 def page_mur(me, users_data):
     st.header("🏠 Mur Mondial")
     with st.expander("📝 Publier"):
         t = st.text_area("Texte")
+        i = st.text_input("Lien Image (URL)")
         if st.button("Partager", type="primary"):
-            requests.post(URL_MSG, json={"u": me, "m": t, "d": "mondial", "t": time.time()})
-            st.rerun()
+            if t or i:
+                requests.post(URL_MSG, json={"u": me, "m": t, "i": i, "d": "mondial", "t": time.time()})
+                st.rerun()
     
     msgs = charger(URL_MSG)
     if msgs:
@@ -70,6 +95,7 @@ def page_mur(me, users_data):
                 p = get_pfp(v['u'], users_data)
                 # MUR = GRIS
                 st.markdown(f"<div style='background-color:#333; color:white; padding:10px; border-radius:10px; margin-bottom:10px;'><img src='{p}' class='pfp-mini'><b>{v['u']}</b>: {v.get('m','')}</div>", unsafe_allow_html=True)
+                if v.get("i"): st.image(v["i"])
                 if v.get("u") == me:
                     if st.button("🗑️", key=f"del_{k}"):
                         requests.delete(f"{URL_BASE}messages/{k}.json")
@@ -80,14 +106,17 @@ def page_messages(me, users_data):
     st.markdown(f"<h2 style='text-align: center;'>{me}</h2>", unsafe_allow_html=True)
     
     st.divider()
-    search = st.text_input("🔍 Rechercher un contact...")
-    if search and st.button("Ajouter", type="primary"):
-        st.session_state.chat_with = search
-        requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={search: True})
-        st.rerun()
+    col1, col2 = st.columns([3, 1])
+    search = col1.text_input("🔍 Chercher un ami...", placeholder="Pseudo")
+    if col2.button("Ajouter", type="primary"):
+        if search and search != me:
+            st.session_state.chat_with = search
+            requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={search: True})
+            st.rerun()
 
     amis = users_data.get(me, {}).get("amis", {})
     if amis:
+        st.write("### Discussions")
         for a in amis.keys():
             if st.sidebar.button(f"👤 {a}", key=f"side_{a}"):
                 st.session_state.chat_with = a
@@ -95,10 +124,9 @@ def page_messages(me, users_data):
 
     if st.session_state.chat_with:
         target = st.session_state.chat_with
-        st.subheader(f"💬 Conversation : {target}")
+        st.subheader(f"💬 Chat : {target}")
         
-        m_in = st.text_input("Ecrire...", key="m_in")
-        # LE BOUTON RESTE BLEU
+        m_in = st.text_input("Message...", key="m_in")
         if st.button("Envoyer 🚀", key="btn_send", type="secondary"):
             if m_in:
                 requests.post(URL_MSG, json={"u": me, "m": m_in, "d": target, "t": time.time()})
@@ -109,7 +137,6 @@ def page_messages(me, users_data):
             for k in list(msgs.keys()):
                 v = msgs[k]
                 if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                    # --- LOGIQUE DES COULEURS UNIQUES ---
                     if v['u'] == me:
                         c, label = "#28a745", "Moi"  # VERT POUR TES MESSAGES
                     else:
@@ -125,7 +152,7 @@ def page_messages(me, users_data):
 
 def page_settings(me, users_data):
     st.header("⚙️ Paramètres")
-    new_pfp = st.text_input("URL Photo", value=get_pfp(me, users_data))
+    new_pfp = st.text_input("Lien photo de profil (URL)", value=get_pfp(me, users_data))
     if st.button("Valider", type="primary"):
         requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"pfp": new_pfp})
         st.rerun()
@@ -134,21 +161,15 @@ def page_settings(me, users_data):
     if st.button("☀️ Mode Clair"): st.session_state.theme = "clair"; st.rerun()
     if st.button("🚪 Déconnexion"): st.session_state.user = None; st.rerun()
 
-# --- 6. ROUTAGE ---
-users_data = charger(URL_USERS)
+# --- 6. ROUTAGE (Logique d'affichage des pages) ---
 if st.session_state.user is None:
-    st.markdown("<div class='sidebar-logo'>🛡️ ClassConnect</div>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["Connexion", "Inscription"])
-    with t1:
-        u = st.text_input("Pseudo", key="l_u")
-        p = st.text_input("MDP", type="password", key="l_p")
-        if st.button("Go", type="primary"):
-            if u in users_data and str(users_data[u].get("mdp")) == str(p):
-                st.session_state.user = u
-                st.rerun()
+    page_connexion_inscription()
 else:
-    st.sidebar.markdown("<div class='sidebar-logo'>🛡️ ClassConnect</div>", unsafe_allow_html=True)
-    page = st.sidebar.selectbox("Menu", ["🏠 Mur Mondial", "💬 Direct Messages", "⚙️ Paramètres"])
+    users_data = charger(URL_USERS)
+    st.sidebar.markdown("<div class='sidebar-logo'>⚽ ClassConnect</div>", unsafe_allow_html=True)
+    page = st.sidebar.selectbox("Aller vers", ["🏠 Mur Mondial", "💬 Direct Messages", "⚙️ Paramètres"])
+    
+    # Affichage de la page sélectionnée UNIQUEMENT
     if page == "🏠 Mur Mondial": page_mur(st.session_state.user, users_data)
     elif page == "💬 Direct Messages": page_messages(st.session_state.user, users_data)
     else: page_settings(st.session_state.user, users_data)
