@@ -18,7 +18,7 @@ if 'temp_code' not in st.session_state: st.session_state.temp_code = None
 # --- 3. DESIGN "RED DARK GLOW" ---
 st.markdown("""
     <style>
-    /* Cacher les barres de recherche navigateur & menus Streamlit */
+    /* Cacher les menus Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
     
     .stApp {
@@ -29,25 +29,27 @@ st.markdown("""
     /* Logo Startup Bournemouth Style */
     .logo-box {
         background: linear-gradient(135deg, #ff0000, #8b0000);
-        width: 60px; height: 60px; border-radius: 15px;
+        width: 50px; height: 50px; border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 10px auto; font-size: 35px; font-weight: bold;
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+        font-size: 30px; font-weight: bold; color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        margin-bottom: 10px;
     }
 
-    /* Photos de profil */
-    .pfp-nav { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #ff0000; }
-    .pfp-main { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #ff0000; display: block; margin: 0 auto; }
+    .pfp-nav { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #ff4b4b; margin-top: 10px; }
+    .pfp-main { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid #ff0000; display: block; margin: 0 auto; }
 
     /* Bulles de Chat */
-    .bubble { padding: 12px 18px; border-radius: 20px; margin-bottom: 8px; max-width: 70%; display: inline-block; }
-    .me { background-color: #28a745; color: white; float: right; clear: both; }
-    .them { background-color: #6f42c1; color: white; float: left; clear: both; }
+    .bubble { padding: 12px 18px; border-radius: 20px; margin-bottom: 8px; max-width: 75%; display: inline-block; font-family: sans-serif; }
+    .me { background-color: #28a745; color: white; float: right; clear: both; border-bottom-right-radius: 2px; }
+    .them { background-color: #6f42c1; color: white; float: left; clear: both; border-bottom-left-radius: 2px; }
 
-    /* Boutons et Inputs */
-    .stButton>button { background: #ff0000; color: white; border-radius: 12px; font-weight: bold; border:none; width: 100%; }
+    /* Inputs & Buttons */
+    .stButton>button { background: #ff0000; color: white; border-radius: 10px; font-weight: bold; border:none; transition: 0.3s; }
+    .stButton>button:hover { background: #ff4b4b; transform: scale(1.02); }
     div.stButton > button:first-child[kind="secondary"] { background: #007bff !important; }
-    .stTextInput>div>div>input { background-color: rgba(255,255,255,0.1) !important; color: white !important; border-radius: 10px !important; }
+    
+    .stTextInput>div>div>input { background-color: rgba(255,255,255,0.08) !important; color: white !important; border-radius: 10px !important; border: 1px solid #444 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -60,135 +62,149 @@ def charger(url):
 
 def get_pfp(pseudo, users_data):
     u_info = users_data.get(pseudo, {})
-    return u_info.get("pfp") if u_info.get("pfp") and u_info.get("pfp") != "" else "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+    url = u_info.get("pfp")
+    return url if url and url.startswith("http") else "https://cdn-icons-png.flaticon.com/512/149/149071.png"
 
-# --- 5. SYSTÈME DE NAVIGATION ---
+# --- 5. LOGIQUE DE NAVIGATION ---
 users_data = charger(URL_USERS)
-page_holder = st.empty() # Zone dynamique pour l'indépendance des pages
+display_area = st.empty() # Pour garantir l'indépendance des pages
 
-with page_holder.container():
+with display_area.container():
     if st.session_state.user is None:
-        # --- LOGIN / SIGNUP ---
-        st.markdown("<div class='logo-box'>C</div><h1 style='text-align:center;'>CLASS CONNECT</h1>", unsafe_allow_html=True)
-        t1, t2 = st.tabs(["Connexion", "Créer un Compte Startup"])
+        # --- ECRAN D'ACCUEIL / AUTHENTIFICATION ---
+        st.markdown("<center><div class='logo-box'>C</div><h1 style='color:white; letter-spacing:2px;'>CLASS CONNECT</h1></center>", unsafe_allow_html=True)
+        tab_login, tab_sign = st.tabs(["Connexion", "Rejoindre Bournemouth Corp"])
         
-        with t1:
-            u = st.text_input("Pseudo", key="l_u")
-            p = st.text_input("Pass", type="password", key="l_p")
-            if st.button("ACCÉDER AU SYSTÈME"):
-                if u in users_data and str(users_data[u].get("mdp")) == str(p):
-                    st.session_state.user = u
+        with tab_login:
+            u_l = st.text_input("Pseudo", key="login_user")
+            p_l = st.text_input("Mot de passe", type="password", key="login_pass")
+            if st.button("DÉVERROUILLER L'ACCÈS"):
+                if u_l in users_data and str(users_data[u_l].get("mdp")) == str(p_l):
+                    st.session_state.user = u_l
                     st.rerun()
-                else: st.error("Identifiants incorrects.")
+                else: st.error("Identifiants invalides.")
 
-        with t2:
-            st.write("### 🛡️ Formulaire de Sécurité")
-            nu = st.text_input("Pseudo Unique", key="r_u")
-            nm = st.text_input("Email Professionnel", key="r_m")
-            np = st.text_input("Mot de passe", type="password", key="r_p")
-            col_s, col_a = st.columns(2)
-            ns = col_s.selectbox("Sexe", ["Homme", "Femme"])
-            na = col_a.number_input("Âge", 13, 99)
+        with tab_sign:
+            st.write("### 📝 Inscription Sécurisée")
+            nu = st.text_input("Pseudo Choisi", key="reg_user")
+            nm = st.text_input("Email (Google/Outlook)", key="reg_mail")
+            np = st.text_input("Mot de passe", type="password", key="reg_pass")
+            col_1, col_2 = st.columns(2)
+            ns = col_1.selectbox("Genre", ["Homme", "Femme"])
+            na = col_2.number_input("Âge", 13, 99)
             
-            if st.button("ENVOYER CODE DE VÉRIFICATION"):
-                if nu in users_data: st.error("Ce pseudo est déjà réservé !")
-                elif not nu or not nm: st.warning("Remplis tous les champs !")
+            if st.button("GÉNÉRER CODE DE SÉCURITÉ"):
+                if nu in users_data: st.error("Désolé, ce pseudo appartient déjà à un membre.")
+                elif not nu or not nm: st.warning("Données incomplètes.")
                 else:
-                    st.session_state.temp_code = random.randint(1000, 9999)
-                    st.info(f"Vérification Google/Mail : Ton code est **{st.session_state.temp_code}**")
+                    st.session_state.temp_code = random.randint(1111, 9999)
+                    st.info(f"🛡️ CODE GOOGLE AUTH : **{st.session_state.temp_code}**")
             
             if st.session_state.temp_code:
-                code_in = st.text_input("Entrez le code à 4 chiffres")
-                if st.button("VALIDER L'INSCRIPTION"):
-                    if str(code_in) == str(st.session_state.temp_code):
+                c_in = st.text_input("Entrez le code de vérification")
+                if st.button("CONFIRMER LA CRÉATION"):
+                    if str(c_in) == str(st.session_state.temp_code):
                         requests.patch(URL_USERS, json={nu: {"mdp": np, "mail": nm, "sexe": ns, "age": na, "pfp": "", "amis": {}}})
-                        st.success("Compte validé ! Connecte-toi.")
+                        st.success("Compte validé ! Connectez-vous.")
                         st.session_state.temp_code = None
-                    else: st.error("Code invalide.")
+                    else: st.error("Code erroné.")
 
     else:
-        # --- INTERFACE CONNECTÉE ---
+        # --- INTERFACE UTILISATEUR CONNECTÉ ---
         me = st.session_state.user
         pfp_me = get_pfp(me, users_data)
         
-        st.sidebar.markdown(f"<center><img src='{pfp_me}' class='pfp-nav'><br><b>Collaborateur : {me}</b></center>", unsafe_allow_html=True)
-        menu = st.sidebar.radio("Navigation", ["🏠 Mur Mondial", "💬 Direct Messages", "⚙️ Paramètres"])
+        # LOGO EN HAUT À GAUCHE DANS LA SIDEBAR
+        st.sidebar.markdown(f"""
+            <div class='logo-box' style='width:40px; height:40px; font-size:22px; margin:0;'>C</div>
+            <div style='margin-top:10px;'>
+                <img src='{pfp_me}' class='pfp-nav'>
+                <p style='margin-top:5px;'><b>Session : {me}</b></p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        choice = st.sidebar.radio("Navigation", ["🏠 Mur Mondial", "💬 Messages Privés", "⚙️ Paramètres"])
 
-        # PAGE 1 : MUR
-        if menu == "🏠 Mur Mondial":
-            st.header("🏠 Flux de l'Entreprise")
-            with st.expander("📸 Partager une image ou un texte"):
-                txt = st.text_area("Légende")
-                img = st.text_input("URL Image")
-                if st.button("DIFFUSER"):
-                    requests.post(URL_MSG, json={"u": me, "m": txt, "i": img, "d": "mondial", "t": time.time()})
+        # --- PAGE MUR ---
+        if choice == "🏠 Mur Mondial":
+            st.header("🏠 Flux Mondial")
+            with st.expander("📝 Publier une actualité"):
+                t_mur = st.text_area("Votre message...")
+                i_mur = st.text_input("Lien image (URL)")
+                if st.button("PUBLIER MAINTENANT"):
+                    requests.post(URL_MSG, json={"u": me, "m": t_mur, "i": i_mur, "d": "mondial", "t": time.time()})
                     st.rerun()
             
+            st.write("---")
             msgs = charger(URL_MSG)
-            for k in reversed(list(msgs.keys())):
-                v = msgs[k]
-                if v.get("d") == "mondial":
-                    p_v = get_pfp(v['u'], users_data)
-                    st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:15px; border-radius:12px; margin-bottom:10px;'><img src='{p_v}' class='pfp-nav'> <b>{v['u']}</b><br>{v.get('m','') if v.get('m') else ''}</div>", unsafe_allow_html=True)
-                    if v.get("i"): st.image(v["i"])
+            if msgs:
+                for k in reversed(list(msgs.keys())):
+                    v = msgs[k]
+                    if v.get("d") == "mondial":
+                        p_v = get_pfp(v['u'], users_data)
+                        st.markdown(f"""
+                            <div style='background:rgba(255,255,255,0.05); padding:15px; border-radius:15px; margin-bottom:15px; border-left:4px solid #ff0000;'>
+                                <img src='{p_v}' class='pfp-nav' style='width:30px; height:30px;'> <b>{v['u']}</b>
+                                <p style='margin-top:10px;'>{v.get('m','')}</p>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        if v.get("i"): st.image(v["i"], use_container_width=True)
 
-        # PAGE 2 : MESSAGES
-        elif menu == "💬 Direct Messages":
+        # --- PAGE MESSAGES ---
+        elif choice == "💬 Messages Privés":
             st.markdown(f"<img src='{pfp_me}' class='pfp-main'>", unsafe_allow_html=True)
             st.markdown(f"<h2 style='text-align:center;'>{me}</h2>", unsafe_allow_html=True)
             
-            # BARRE DE RECHERCHE CONTACTS
-            st.write("### 🔍 Ajouter un contact")
-            search = st.text_input("Entrez le pseudo exact d'un collègue...")
-            if st.button("Lancer la discussion"):
+            st.write("### 🔍 Rechercher un collaborateur")
+            search = st.text_input("Pseudo de l'utilisateur...")
+            if st.button("DÉMARRER LE CHAT"):
                 if search in users_data and search != me:
                     st.session_state.chat_with = search
                     requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={search: True})
                     st.rerun()
-                else: st.error("Utilisateur non trouvé.")
+                else: st.warning("Utilisateur introuvable dans la base Bournemouth.")
 
-            # RÉPERTOIRE
-            mes_amis = users_data.get(me, {}).get("amis", {})
-            if mes_amis:
-                st.write("---")
-                st.write("### 📇 Tes discussions")
-                for ami in mes_amis.keys():
-                    if st.sidebar.button(f"👤 {ami}", key=f"s_{ami}"):
+            amis = users_data.get(me, {}).get("amis", {})
+            if amis:
+                st.sidebar.write("---")
+                st.sidebar.write("👤 **Contacts Récents**")
+                for ami in amis.keys():
+                    if st.sidebar.button(f"Chat : {ami}", key=f"chatbtn_{ami}"):
                         st.session_state.chat_with = ami
                         st.rerun()
 
             if st.session_state.chat_with:
                 target = st.session_state.chat_with
-                st.divider()
-                st.subheader(f"💬 Chat avec {target}")
+                st.write(f"### 💬 Discussion avec **{target}**")
                 
-                # Zone de messages
                 msgs = charger(URL_MSG)
-                for k in list(msgs.keys()):
-                    v = msgs[k]
-                    if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                        side = "me" if v['u'] == me else "them"
-                        st.markdown(f"<div class='bubble {side}'><b>{v['u']}:</b> {v['m']}</div>", unsafe_allow_html=True)
+                if msgs:
+                    for k in list(msgs.keys()):
+                        v = msgs[k]
+                        if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
+                            cls = "me" if v['u'] == me else "them"
+                            st.markdown(f"<div class='bubble {cls}'><b>{v['u']}:</b> {v['m']}</div>", unsafe_allow_html=True)
                 
-                # Envoyer
-                st.write("")
-                msg_in = st.text_input("Écrire...", key="msg_in")
+                st.write(" ")
+                m_in = st.text_input("Écrire un message...", key="input_msg")
                 if st.button("ENVOYER 🚀", type="secondary"):
-                    if msg_in:
-                        requests.post(URL_MSG, json={"u": me, "m": msg_in, "d": target, "t": time.time()})
+                    if m_in:
+                        requests.post(URL_MSG, json={"u": me, "m": m_in, "d": target, "t": time.time()})
                         st.rerun()
 
-        # PAGE 3 : SETTINGS
-        elif menu == "⚙️ Paramètres":
-            st.header("⚙️ Paramètres")
-            new_pfp = st.text_input("Lien vers ta photo de profil (URL)", value=pfp_me)
-            if st.button("Mettre à jour la photo"):
+        # --- PAGE PARAMÈTRES ---
+        elif choice == "⚙️ Paramètres":
+            st.header("⚙️ Gestion du Compte")
+            new_pfp = st.text_input("Lien vers votre photo de profil (URL)", value=pfp_me)
+            if st.button("SAUVEGARDER LE PROFIL"):
                 requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"pfp": new_pfp})
-                st.success("C'est fait !")
-            if st.button("🚪 Déconnexion"):
+                st.success("Profil mis à jour !")
+            
+            if st.button("🚪 QUITTER LA SESSION"):
                 st.session_state.user = None
+                st.session_state.chat_with = None
                 st.rerun()
 
-# Auto-refresh
+# Rafraîchissement automatique
 time.sleep(10)
 st.rerun()
