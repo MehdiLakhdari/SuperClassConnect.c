@@ -3,7 +3,7 @@ import requests
 import time
 
 # --- CONFIGURATION (METS TON LIEN FIREBASE ICI) ---
-URL_FB = "https://ton-projet.firebaseio.com/.json" 
+URL_FB = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app" 
 
 st.set_page_config(page_title="BCF Connect", page_icon="⚽", layout="centered")
 
