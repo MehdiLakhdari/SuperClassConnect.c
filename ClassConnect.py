@@ -10,19 +10,16 @@ URL_USERS = f"{URL_BASE}utilisateurs.json"
 
 st.set_page_config(page_title="ClassConnect Pro +", page_icon="🔔", layout="centered")
 
-# --- 2. DESIGN AVEC NOTIFICATIONS ---
+# --- 2. DESIGN SOMBRE & NOTIFICATIONS ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     .message-card { 
-        background-color: #161b22; padding: 12px; border-radius: 10px; 
-        border: 1px solid #30363d; margin-bottom: 8px;
-    }
-    .notif-badge {
-        background-color: #ff4b4b; color: white; border-radius: 50%;
-        padding: 2px 8px; font-size: 12px; font-weight: bold; margin-left: 10px;
+        background-color: #161b22; padding: 15px; border-radius: 12px; 
+        border: 1px solid #30363d; margin-bottom: 10px;
     }
     .stButton>button { border-radius: 8px; font-weight: bold; width: 100%; }
+    .stTextInput>div>div>input { background-color: #21262d; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,7 +40,6 @@ def compter_notifs(pseudo):
     if data:
         for k in data:
             v = data[k]
-            # On compte les messages privés destinés à l'utilisateur
             if v.get("d") == pseudo:
                 count += 1
     return count
@@ -76,7 +72,7 @@ else:
     u_curr = st.session_state.user
     nb_notifs = compter_notifs(u_curr)
     
-    # Affichage des notifs dans la sidebar
+    # Menu avec notifications
     label_prive = f"🔒 Messages Privés"
     if nb_notifs > 0:
         label_prive += f" ({nb_notifs})"
@@ -84,15 +80,53 @@ else:
     st.sidebar.title(f"👤 {u_curr}")
     menu = st.sidebar.radio("Navigation", ["🌍 Mur Mondial", label_prive, "🚪 Déconnexion"])
 
-    if "🔒 Messages Privés" in menu:
-        st.header("💬 Tes Discussions")
+    if menu == "🌍 Mur Mondial":
+        st.header("🌍 Mur Mondial")
+        
+        # --- SECTION POSTER (AVEC IMAGE) ---
+        with st.expander("➕ Nouveau Post (Texte ou Image)"):
+            txt = st.text_area("Ton message...")
+            img_url = st.text_input("Lien d'une image (ex: https://...)")
+            if st.button("Publier 🚀"):
+                if txt or img_url:
+                    requests.post(URL_MSG, json={
+                        "u": u_curr, "m": txt, "i": img_url, 
+                        "d": "mondial", "t": time.time(), "l": 0
+                    })
+                    st.rerun()
+
+        st.divider()
+        
+        # --- AFFICHAGE DU MUR ---
+        data = charger(URL_MSG)
+        if data:
+            for k in reversed(list(data.keys())):
+                v = data[k]
+                if v.get("d") == "mondial":
+                    with st.container():
+                        st.markdown(f"<div class='message-card'>", unsafe_allow_html=True)
+                        st.write(f"👤 **{v['u']}**")
+                        if v.get("m"):
+                            st.write(v["m"])
+                        if v.get("i"): # ICI : Affichage de l'image
+                            st.image(v["i"], use_container_width=True)
+                        
+                        # Bouton Like
+                        likes = v.get("l", 0)
+                        if st.button(f"❤️ {likes}", key=k):
+                            requests.patch(f"{URL_BASE}messages/{k}.json", json={"l": likes + 1})
+                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+    elif "🔒 Messages Privés" in menu:
+        st.header("💬 Tes Discussions Privées")
         if nb_notifs > 0:
-            st.warning(f"Tu as {nb_notifs} message(s) dans ta boîte !")
+            st.warning(f"Tu as {nb_notifs} message(s) non lus !")
             
-        ami = st.text_input("Discuter avec (Pseudo) :")
+        ami = st.text_input("Pseudo de l'ami :")
         if ami:
             msg_p = st.text_input("Ton message privé...", key="p_msg")
-            if st.button("Envoyer 🔒"):
+            if st.button("Envoyer en privé"):
                 if msg_p:
                     requests.post(URL_MSG, json={
                         "u": u_curr, "m": msg_p, "d": ami, "t": time.time(), "l": 0
@@ -104,31 +138,13 @@ else:
             if data:
                 for k in reversed(list(data.keys())):
                     v = data[k]
-                    # Afficher la discussion entre les deux
                     if (v.get("u") == u_curr and v.get("d") == ami) or (v.get("u") == ami and v.get("d") == u_curr):
                         st.info(f"**{v['u']}**: {v['m']}")
-
-    elif menu == "🌍 Mur Mondial":
-        st.header("🌍 Mur Mondial")
-        with st.expander("➕ Nouveau Post"):
-            txt = st.text_area("Message...")
-            if st.button("Publier"):
-                requests.post(URL_MSG, json={
-                    "u": u_curr, "m": txt, "d": "mondial", "t": time.time(), "l": 0
-                })
-                st.rerun()
-
-        data = charger(URL_MSG)
-        if data:
-            for k in reversed(list(data.keys())):
-                v = data[k]
-                if v.get("d") == "mondial":
-                    st.markdown(f"<div class='message-card'><b>{v['u']}</b><br>{v.get('m','')}</div>", unsafe_allow_html=True)
 
     elif menu == "🚪 Déconnexion":
         st.session_state.user = None
         st.rerun()
 
-    # AUTO-REFRESH (Toutes les 12 secondes)
+    # AUTO-REFRESH (Toutes les 12 secondes pour les notifs et messages)
     time.sleep(12)
     st.rerun()
