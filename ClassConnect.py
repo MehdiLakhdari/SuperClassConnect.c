@@ -8,43 +8,44 @@ URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect Pro", page_icon="💬", layout="centered")
+st.set_page_config(page_title="ClassConnect Insta", page_icon="📸", layout="centered")
 
-# --- 2. SESSION ---
+# --- 2. GESTION DU THÈME ---
 if 'theme' not in st.session_state: st.session_state.theme = "sombre"
 if 'user' not in st.session_state: st.session_state.user = None
 if 'chat_with' not in st.session_state: st.session_state.chat_with = None
 
-# --- 3. STYLE DYNAMIQUE CORRIGÉ ---
 if st.session_state.theme == "sombre":
-    bg, txt, btn, card, fade = "#0f0f0f", "#ffffff", "#7b1fa2", "#1e1e1e", "#333333"
+    bg, txt, btn, card, input_bg = "#000000", "#ffffff", "#bc2a8d", "#121212", "#262626"
 else:
-    # Correction : Texte beaucoup plus foncé (#000000) pour la visibilité
-    bg, txt, btn, card, fade = "#ffffff", "#000000", "#d32f2f", "#f0f2f5", "#cccccc"
+    bg, txt, btn, card, input_bg = "#ffffff", "#000000", "#e1306c", "#fafafa", "#efefef"
 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg}; color: {txt}; }}
     .message-card {{ 
-        background-color: {card}; padding: 12px; border-radius: 15px; 
-        margin-bottom: 10px; border: 1px solid {fade};
+        background-color: {card}; padding: 12px; border-radius: 10px; 
+        margin-bottom: 8px; border: 0.5px solid #333; color: {txt};
     }}
-    .profile-pic {{
-        width: 40px; height: 40px; border-radius: 50%; 
-        object-fit: cover; vertical-align: middle; margin-right: 10px;
+    .pfp-large {{
+        width: 100px; height: 100px; border-radius: 50%; 
+        object-fit: cover; border: 3px solid {btn}; display: block; margin: 0 auto;
     }}
-    .contact-btn {{
+    .pfp-mini {{
+        width: 35px; height: 35px; border-radius: 50%; 
+        object-fit: cover; margin-right: 10px;
+    }}
+    .contact-row {{
         display: flex; align-items: center; padding: 10px;
-        background-color: {card}; border-radius: 10px; cursor: pointer;
-        margin-bottom: 5px; border: 1px solid {fade};
+        background-color: {card}; border-radius: 8px; margin-bottom: 5px;
+        border: 1px solid #444; cursor: pointer;
     }}
-    .stButton>button {{ border-radius: 20px; font-weight: bold; border:none; }}
-    /* Visibilité des textes dans les inputs */
-    input {{ color: {txt} !important; }}
+    .stButton>button {{ border-radius: 8px; font-weight: bold; background-color: {btn}; color: white; border: none; }}
+    input {{ background-color: {input_bg} !important; color: {txt} !important; border-radius: 8px !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. FONCTIONS ---
+# --- 3. FONCTIONS ---
 def charger(url):
     try:
         r = requests.get(url)
@@ -52,113 +53,127 @@ def charger(url):
     except: return {}
 
 def get_pfp(pseudo, users_data):
-    # Récupère la photo de profil ou une image par défaut
     user_info = users_data.get(pseudo, {})
-    return user_info.get("pfp", "https://cdn-icons-png.flaticon.com/512/149/149071.png")
+    return user_info.get("pfp") if user_info.get("pfp") else "https://cdn-icons-png.flaticon.com/512/149/149071.png"
 
-# --- 5. AUTHENTIFICATION ---
+# --- 4. AUTHENTIFICATION ---
 users_data = charger(URL_USERS)
 
 if st.session_state.user is None:
-    st.title("🚀 ClassConnect")
-    mode = st.tabs(["Connexion", "Inscription"])
-    with mode[0]:
+    st.title("📸 ClassConnect")
+    tab1, tab2 = st.tabs(["Connexion", "Inscription"])
+    with tab1:
         u = st.text_input("Pseudo")
         p = st.text_input("Mot de passe", type="password")
         if st.button("Se connecter"):
             if u in users_data and str(users_data[u].get("mdp")) == str(p):
                 st.session_state.user = u
                 st.rerun()
-            else: st.error("Pseudo ou mot de passe incorrect.")
-    with mode[1]:
+            else: st.error("Identifiants incorrects.")
+    with tab2:
         nu = st.text_input("Nouveau Pseudo")
-        np = st.text_input("Mot de passe ", type="password")
-        if st.button("Créer mon compte"):
+        np = st.text_input("Mot de passe", type="password")
+        if st.button("S'inscrire"):
             if nu and np:
-                requests.patch(URL_USERS, json={nu: {"mdp": np, "pfp": ""}})
+                requests.patch(URL_USERS, json={nu: {"mdp": np, "pfp": "", "amis": {}}})
                 st.success("Compte créé !")
 
-# --- 6. INTERFACE PRINCIPALE ---
+# --- 5. LOGIQUE DES PAGES ---
 else:
     me = st.session_state.user
     my_pfp = get_pfp(me, users_data)
-
-    # SIDEBAR
-    st.sidebar.markdown(f"<img src='{my_pfp}' class='profile-pic'> <b>{me}</b>", unsafe_allow_html=True)
     
-    st.sidebar.divider()
-    menu = st.sidebar.radio("Menu", ["🌍 Mur Mondial", "🔒 Discussions", "⚙️ Mon Profil", "🚪 Quitter"])
+    # NAVIGATION INDÉPENDANTE DANS LA SIDEBAR
+    st.sidebar.image(my_pfp, width=100)
+    st.sidebar.title(me)
+    page = st.sidebar.selectbox("Aller vers", ["🏠 Mur Mondial", "💬 Direct Messages", "⚙️ Paramètres"])
 
-    if menu == "🌍 Mur Mondial":
-        st.header("🌍 Mur Mondial")
-        with st.expander("📝 Poster quelque chose"):
-            txt_msg = st.text_area("Message")
-            img_msg = st.text_input("Lien Image")
-            if st.button("Publier"):
-                requests.post(URL_MSG, json={"u": me, "m": txt_msg, "i": img_msg, "d": "mondial", "t": time.time(), "l": 0})
+    # --- PAGE 1 : MUR MONDIAL ---
+    if page == "🏠 Mur Mondial":
+        st.header("🏠 Mur Mondial")
+        with st.expander("📝 Créer une publication"):
+            t = st.text_area("Légende...")
+            i = st.text_input("URL de l'image")
+            if st.button("Partager"):
+                requests.post(URL_MSG, json={"u": me, "m": t, "i": i, "d": "mondial", "t": time.time()})
                 st.rerun()
-
+        
         msgs = charger(URL_MSG)
         for k in reversed(list(msgs.keys())):
             v = msgs[k]
             if v.get("d") == "mondial":
-                pfp = get_pfp(v['u'], users_data)
-                st.markdown(f"""<div class='message-card'>
-                    <img src='{pfp}' class='profile-pic'><b>{v['u']}</b><br>
-                    <p style='margin-left:50px;'>{v.get('m','')}</p>
-                </div>""", unsafe_allow_html=True)
+                p = get_pfp(v['u'], users_data)
+                st.markdown(f"<div class='message-card'><img src='{p}' class='pfp-mini'><b>{v['u']}</b><br><br>{v['m']}</div>", unsafe_allow_html=True)
                 if v.get("i"): st.image(v["i"])
 
-    elif menu == "🔒 Discussions":
-        st.header("🔒 Messages Privés")
+    # --- PAGE 2 : MESSAGES PRIVÉS (STYLE INSTA) ---
+    elif page == "💬 Direct Messages":
+        # 1. Profil en haut au milieu
+        st.markdown(f"<img src='{my_pfp}' class='pfp-large'>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='text-align: center;'>{me}</h2>", unsafe_allow_html=True)
         
-        # Liste des contacts avec qui on a déjà parlé
-        msgs = charger(URL_MSG)
-        contacts = set()
-        for k in msgs:
-            v = msgs[k]
-            if v.get("d") != "mondial":
-                if v.get("u") == me: contacts.add(v.get("d"))
-                if v.get("d") == me: contacts.add(v.get("u"))
+        # 2. Barre de recherche
+        st.divider()
+        search = st.text_input("🔍 Rechercher un contact...", placeholder="Tape le pseudo (ex: Mourad)")
         
-        st.sidebar.subheader("Contacts récents")
-        for c in contacts:
-            if st.sidebar.button(f"👤 {c}", key=f"contact_{c}"):
-                st.session_state.chat_with = c
-        
-        target = st.text_input("Chercher un pseudo :", value=st.session_state.chat_with if st.session_state.chat_with else "")
-        if target:
-            st.session_state.chat_with = target
-            pfp_target = get_pfp(target, users_data)
-            st.markdown(f"### Discuter avec <img src='{pfp_target}' class='profile-pic'> {target}", unsafe_allow_html=True)
-            
-            new_p_msg = st.text_input("Ecrire...")
-            if st.button("Envoyer"):
-                requests.post(URL_MSG, json={"u": me, "m": new_p_msg, "d": target, "t": time.time()})
+        if search:
+            if st.button(f"Discuter avec {search}"):
+                st.session_state.chat_with = search
+                # Enregistrer l'ami automatiquement s'il n'existe pas
+                requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={search: True})
                 st.rerun()
+
+        # 3. Liste des personnes (Amis enregistrés)
+        mes_amis = users_data.get(me, {}).get("amis", {})
+        if mes_amis:
+            st.write("### Discussions")
+            for ami_nom in mes_amis.keys():
+                pfp_ami = get_pfp(ami_nom, users_data)
+                col_a, col_b = st.columns([1, 4])
+                col_a.image(pfp_ami, width=50)
+                if col_b.button(f"{ami_nom}", key=f"chat_{ami_nom}"):
+                    st.session_state.chat_with = ami_nom
+                    st.rerun()
+
+        # 4. Zone de Chat
+        if st.session_state.chat_with:
+            st.divider()
+            target = st.session_state.chat_with
+            st.subheader(f"💬 Conversation avec {target}")
             
+            msg_input = st.text_input("Envoyer un message...", key="msg_input")
+            if st.button("Envoyer"):
+                if msg_input:
+                    requests.post(URL_MSG, json={"u": me, "m": msg_input, "d": target, "t": time.time()})
+                    st.rerun()
+            
+            # Affichage des messages
+            msgs = charger(URL_MSG)
             for k in reversed(list(msgs.keys())):
                 v = msgs[k]
                 if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                    align = "right" if v.get("u") == me else "left"
-                    st.markdown(f"<div style='text-align:{align};' class='message-card'><b>{v['u']}</b>: {v['m']}</div>", unsafe_allow_html=True)
+                    side = "right" if v['u'] == me else "left"
+                    color = btn if v['u'] == me else "#333"
+                    st.markdown(f"<div style='text-align:{side};'><span style='background-color:{color}; color:white; padding:8px 15px; border-radius:15px; display:inline-block; margin:2px;'>{v['m']}</span></div>", unsafe_allow_html=True)
 
-    elif menu == "⚙️ Mon Profil":
-        st.header("⚙️ Modifier mon profil")
+    # --- PAGE 3 : PARAMÈTRES ---
+    elif page == "⚙️ Paramètres":
+        st.header("⚙️ Paramètres du Profil")
         new_pfp = st.text_input("Lien de ta photo de profil (URL)", value=my_pfp)
-        if st.button("Enregistrer les modifs"):
+        if st.button("Sauvegarder"):
             requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"pfp": new_pfp})
             st.success("Profil mis à jour !")
-            st.rerun()
-            
+        
         st.divider()
-        st.subheader("🎨 Thème")
-        if st.button("🌙 Mode Sombre"): st.session_state.theme = "sombre"; st.rerun()
-        if st.button("☀️ Mode Clair"): st.session_state.theme = "clair"; st.rerun()
+        st.subheader("🎨 Apparence")
+        c1, c2 = st.columns(2)
+        if c1.button("🌙 Mode Sombre"): st.session_state.theme = "sombre"; st.rerun()
+        if c2.button("☀️ Mode Clair"): st.session_state.theme = "clair"; st.rerun()
+        
+        if st.button("🚪 Déconnexion"):
+            st.session_state.user = None
+            st.rerun()
 
-    elif menu == "🚪 Quitter":
-        st.session_state.user = None
-        st.rerun()
-
+    # Rafraîchissement automatique
     time.sleep(10)
     st.rerun()
