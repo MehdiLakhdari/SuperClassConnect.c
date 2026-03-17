@@ -7,14 +7,14 @@ URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect Ultimate", page_icon="🏆", layout="centered")
+st.set_page_config(page_title="ClassConnect Master", page_icon="💎", layout="centered")
 
 # --- 2. ÉTAT DE LA SESSION ---
 if 'theme' not in st.session_state: st.session_state.theme = "sombre"
 if 'user' not in st.session_state: st.session_state.user = None
 if 'chat_with' not in st.session_state: st.session_state.chat_with = None
 
-# --- 3. DESIGN DYNAMIQUE ---
+# --- 3. DESIGN DYNAMIQUE & BOUTON BLEU ---
 if st.session_state.theme == "sombre":
     bg, txt, btn, card = "#000000", "#ffffff", "#bc2a8d", "#121212"
 else:
@@ -26,7 +26,19 @@ st.markdown(f"""
     .message-card {{ background-color: {card}; padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 0.5px solid #333; }}
     .pfp-large {{ width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid {btn}; display: block; margin: 0 auto; }}
     .pfp-mini {{ width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; }}
+    
+    /* Bouton Standard (Violet/Rose) */
     .stButton>button {{ border-radius: 8px; font-weight: bold; background-color: {btn}; color: white; border: none; width: 100%; }}
+    
+    /* STYLE SPÉCIAL POUR LE BOUTON ENVOYER (BLEU) */
+    div.stButton > button:first-child[kind="secondary"] {{
+        background-color: #007bff !important;
+        color: white !important;
+        border: none !important;
+    }}
+    
+    /* Style du titre Sidebar */
+    .sidebar-logo {{ font-size: 24px; font-weight: bold; color: {btn}; text-align: center; margin-bottom: 20px; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -48,7 +60,7 @@ def page_mur(me, users_data):
     with st.expander("📝 Publier"):
         t = st.text_area("Texte")
         i = st.text_input("Lien Image (URL)")
-        if st.button("Partager"):
+        if st.button("Partager", type="primary"):
             requests.post(URL_MSG, json={"u": me, "m": t, "i": i, "d": "mondial", "t": time.time()})
             st.rerun()
     
@@ -72,7 +84,7 @@ def page_messages(me, users_data):
     
     st.divider()
     search = st.text_input("🔍 Rechercher un ami...")
-    if search and st.button("Lancer la discussion"):
+    if search and st.button("Lancer la discussion", type="primary"):
         st.session_state.chat_with = search
         requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={search: True})
         st.rerun()
@@ -83,62 +95,66 @@ def page_messages(me, users_data):
         for a in amis.keys():
             col1, col2 = st.columns([1, 5])
             col1.image(get_pfp(a, users_data), width=40)
-            if col2.button(f"Chat avec {a}", key=f"c_{a}"):
+            if col2.button(f"Chat avec {a}", key=f"c_{a}", type="primary"):
                 st.session_state.chat_with = a
                 st.rerun()
 
     if st.session_state.chat_with:
         target = st.session_state.chat_with
-        st.subheader(f"💬 Conversation : {target}")
+        st.divider()
+        st.subheader(f"💬 Discussion avec {target}")
         
-        m_in = st.text_input("Message...", key="m_in")
-        if st.button("Envoyer"):
+        m_in = st.text_input("Ecris ton message ici...", key="m_in")
+        # BOUTON ENVOYER : type="secondary" pour qu'il devienne BLEU via le CSS
+        if st.button("Envoyer 🚀", key="btn_send", type="secondary"):
             if m_in:
                 requests.post(URL_MSG, json={"u": me, "m": m_in, "d": target, "t": time.time()})
                 st.rerun()
         
-        # ORDRE CHRONOLOGIQUE : Plus ancien en haut, nouveau en bas
         msgs = charger(URL_MSG)
         if msgs:
-            for k in list(msgs.keys()): # On ne fait pas de reversed() ici
+            for k in list(msgs.keys()):
                 v = msgs[k]
                 if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                    c = btn if v['u'] == me else "#333"
+                    c = "#007bff" if v['u'] == me else "#444"
                     st.markdown(f"<div style='margin-bottom:5px;'><span style='background-color:{c}; color:white; padding:8px 12px; border-radius:12px; display:inline-block;'><b>{v['u']}:</b> {v['m']}</span></div>", unsafe_allow_html=True)
 
 def page_settings(me, users_data):
     st.header("⚙️ Paramètres")
     new_pfp = st.text_input("Lien de ta photo de profil", value=get_pfp(me, users_data))
-    if st.button("Enregistrer"):
+    if st.button("Enregistrer", type="primary"):
         requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"pfp": new_pfp})
         st.success("Profil mis à jour !")
     
     st.divider()
-    if st.button("🌙 Sombre"): st.session_state.theme = "sombre"; st.rerun()
-    if st.button("☀️ Clair"): st.session_state.theme = "clair"; st.rerun()
-    if st.button("🚪 Se déconnecter"): st.session_state.user = None; st.rerun()
+    if st.button("🌙 Sombre", key="thm_s"): st.session_state.theme = "sombre"; st.rerun()
+    if st.button("☀️ Clair", key="thm_c"): st.session_state.theme = "clair"; st.rerun()
+    if st.button("🚪 Se déconnecter", key="logout"): st.session_state.user = None; st.rerun()
 
 # --- 6. ROUTAGE ---
 users_data = charger(URL_USERS)
 
 if st.session_state.user is None:
-    st.title("🛡️ ClassConnect")
+    st.markdown("<div class='sidebar-logo'>🛡️ ClassConnect</div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["Connexion", "Inscription"])
     with t1:
         u = st.text_input("Pseudo", key="l_u")
         p = st.text_input("Mot de passe", type="password", key="l_p")
-        if st.button("Entrer"):
+        if st.button("Entrer", type="primary"):
             if u in users_data and str(users_data[u].get("mdp")) == str(p):
                 st.session_state.user = u
                 st.rerun()
     with t2:
         nu = st.text_input("Pseudo", key="r_u")
         np = st.text_input("Mot de passe", type="password", key="r_p")
-        if st.button("S'inscrire"):
+        if st.button("S'inscrire", type="primary"):
             requests.patch(URL_USERS, json={nu: {"mdp": np, "pfp": "", "amis": {}}})
             st.success("Compte créé !")
 else:
+    # Logo ClassConnect placé en haut de la Sidebar
+    st.sidebar.markdown("<div class='sidebar-logo'>🛡️ ClassConnect</div>", unsafe_allow_html=True)
     page = st.sidebar.selectbox("Navigation", ["🏠 Mur Mondial", "💬 Direct Messages", "⚙️ Paramètres"])
+    
     if page == "🏠 Mur Mondial": page_mur(st.session_state.user, users_data)
     elif page == "💬 Direct Messages": page_messages(st.session_state.user, users_data)
     else: page_settings(st.session_state.user, users_data)
