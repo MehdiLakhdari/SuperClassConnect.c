@@ -3,156 +3,127 @@ import requests
 import time
 
 # --- 1. CONFIGURATION ---
-# Ton lien Firebase (vérifie bien le .json à la fin)
 URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/"
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect - BCF Network", page_icon="🚀", layout="centered")
+st.set_page_config(page_title="ClassConnect - Red & White Edition", page_icon="❤️", layout="centered")
 
-# --- 2. STYLE PERSONNALISÉ (JAUNE & VERT) ---
+# --- 2. STYLE PERSONNALISÉ (ROUGE, BLANC & VIOLET) ---
 st.markdown("""
     <style>
-    /* Fond de l'application */
-    .stApp { background-color: #f0f8ff; color: #1e3d1e; }
+    /* Fond global blanc propre */
+    .stApp { background-color: #ffffff; color: #333333; }
     
-    /* Titres principaux */
-    h1, h2, h3 { color: #1e3d1e; }
+    /* Barre latérale en rouge */
+    [data-testid="stSidebar"] { background-color: #d32f2f; color: white; }
+    [data-testid="stSidebar"] * { color: white !important; }
 
-    /* Boutons personnalisés (Jaune Éclair) */
+    /* Boutons personnalisés (Rouge avec texte Blanc) */
     .stButton>button { 
-        background-color: #ffeb3b; /* Jaune */
-        color: #1e3d1e; /* Texte Vert foncé */
-        border-radius: 10px; 
-        border: 2px solid #ffeb3b;
+        background-color: #d32f2f; 
+        color: white; 
+        border-radius: 8px; 
+        border: none;
+        padding: 10px 20px;
         font-weight: bold;
+        width: 100%;
     }
     .stButton>button:hover {
-        background-color: #fbc02d; /* Jaune plus foncé au survol */
-        border: 2px solid #fbc02d;
+        background-color: #b71c1c;
+        border: none;
+        color: white;
     }
 
-    /* Cartes de message (Vert Forêt clair) */
+    /* Cartes de message (Fond Blanc, Bordure Rouge) */
     .message-card { 
-        background-color: #e8f5e9; /* Vert très clair */
+        background-color: #f8f9fa; 
         padding: 15px; 
-        border-radius: 15px; 
-        border-left: 5px solid #4caf50; /* Bordure Vert clair */
-        margin-bottom: 10px; 
-        color: #1e3d1e;
-    }
-    
-    /* Input fields (Champs de texte) */
-    .stTextInput>div>div>input {
-        background-color: #ffffff;
-        color: #1e3d1e;
-        border: 1px solid #4caf50;
+        border-radius: 12px; 
+        border-left: 6px solid #d32f2f; 
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 15px; 
+        color: #333333;
     }
 
-    /* Sidebar (Menu latéral) */
-    .css-1634w35 { background-color: #4caf50; } /* Fond Vert */
-    .css-1634w35 .css-qri22k { color: #ffffff; } /* Texte Blanc */
+    /* Logo Violet Sombre */
+    .logo-text {
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 45px;
+        font-weight: bold;
+        color: #4B0082; /* Violet Sombre (Indigo) */
+        text-align: center;
+        margin-bottom: 5px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. LOGO DE L'APPLICATION ---
 def afficher_logo():
-    # Remplace l'URL ci-dessous par l'URL de ton image de logo si tu en as une.
-    # Sinon, voici une représentation textuelle stylisée.
-    st.markdown("""
-        <div style='text-align: center; margin-bottom: 20px;'>
-            <h1 style='font-size: 50px; margin: 0;'>
-                <span style='color: #ffeb3b;'>C</span><span style='color: #4caf50;'>C</span>
-            </h1>
-            <p style='font-size: 18px; color: #1e3d1e; font-weight: bold;'>ClassConnect</p>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='logo-text'>CC</div>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#4B0082; font-weight:bold; margin-top:-15px;'>ClassConnect</p>", unsafe_allow_html=True)
 
 # --- 4. INITIALISATION DE LA SESSION ---
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# --- 5. FONCTIONS DE LA "WAR MACHINE" ---
+# --- 5. FONCTIONS TECHNIQUES ---
 def recuperer_utilisateurs():
     r = requests.get(URL_USERS).json()
     return r if r else {}
 
 def creer_compte(pseudo, mdp):
     users = recuperer_utilisateurs()
-    if pseudo in users:
-        return False
-    # On enregistre le nouvel utilisateur
+    if pseudo in users: return False
     requests.patch(URL_USERS, json={pseudo: {"mdp": mdp}})
     return True
 
 def verifier_connexion(pseudo, mdp):
     users = recuperer_utilisateurs()
-    if pseudo in users and users[pseudo]["mdp"] == mdp:
-        return True
-    return False
+    return pseudo in users and users[pseudo]["mdp"] == mdp
 
 def ajouter_like(msg_key):
-    # Récupérer le message actuel
     url_msg_specifique = f"{URL_BASE}messages/{msg_key}.json"
     msg_data = requests.get(url_msg_specifique).json()
     if msg_data:
-        # Incrémenter les likes
         current_likes = msg_data.get("l", 0)
-        # Mettre à jour avec PATCH
         requests.patch(url_msg_specifique, json={"l": current_likes + 1})
-        st.success("Cœur ❤️ ajouté !")
 
-# --- 6. INTERFACE D'AUTHENTIFICATION ---
+# --- 6. AUTHENTIFICATION ---
 if st.session_state.user is None:
     afficher_logo()
-    
-    tab1, tab2 = st.tabs(["🔑 Se connecter", "📝 Créer un compte"])
+    tab1, tab2 = st.tabs(["🔒 Connexion", "📝 Inscription"])
     
     with tab1:
         u_log = st.text_input("Pseudo", key="log_u")
         p_log = st.text_input("Mot de passe", type="password", key="log_p")
-        if st.button("Connexion 🔑"):
+        if st.button("Se connecter"):
             if verifier_connexion(u_log, p_log):
                 st.session_state.user = u_log
-                st.success(f"Bienvenue {u_log} !")
-                time.sleep(1)
                 st.rerun()
-            else:
-                st.error("Pseudo ou mot de passe incorrect.")
+            else: st.error("Erreur de pseudo/mot de passe")
 
     with tab2:
-        u_reg = st.text_input("Choisis un pseudo", key="reg_u")
-        p_reg = st.text_input("Choisis un mot de passe", type="password", key="reg_p")
-        if st.button("S'inscrire 📝"):
+        u_reg = st.text_input("Pseudo souhaité", key="reg_u")
+        p_reg = st.text_input("Mot de passe souhaité", type="password", key="reg_p")
+        if st.button("Créer mon compte"):
             if u_reg and p_reg:
-                if creer_compte(u_reg, p_reg):
-                    st.success("Compte créé ! Connecte-toi maintenant.")
-                else:
-                    st.error("Ce pseudo est déjà pris.")
-            else:
-                st.warning("Remplis toutes les cases !")
+                if creer_compte(u_reg, p_reg): st.success("Compte créé ! Connecte-toi.")
+                else: st.error("Pseudo déjà utilisé.")
 
-# --- 7. INTERFACE PRINCIPALE (UNE FOIS CONNECTÉ) ---
+# --- 7. APPLICATION PRINCIPALE ---
 else:
     afficher_logo()
     
-    # Sidebar
-    st.sidebar.markdown(f"<h2>⚽ <span style='color: #ffeb3b;'>{st.session_state.user}</span></h2>", unsafe_allow_html=True)
-    menu = st.sidebar.selectbox("Navigation", ["🌍 Chat Mondial", "🔒 Messages Privés", "🎨 Thèmes & Infos"])
+    st.sidebar.markdown(f"### 👤 {st.session_state.user}")
+    menu = st.sidebar.radio("Menu", ["🌍 Chat Mondial", "💬 Messages Privés", "🚪 Déconnexion"])
 
-    # LOGIQUE CHAT
     if menu == "🌍 Chat Mondial":
-        st.header("🌍 Chat Mondial")
-        msg = st.text_input("Message...", placeholder="Dis quelque chose à la classe", key="global_msg")
-        if st.button("Envoyer sur le mur 🚀"):
+        st.subheader("🌍 Mur de la classe")
+        msg = st.text_input("Ton message...", key="global_input")
+        if st.button("Publier ❤️"):
             if msg:
-                requests.post(URL_MSG, json={
-                    "u": st.session_state.user,
-                    "m": msg,
-                    "d": "mondial",
-                    "t": time.time(),
-                    "l": 0 # Initialiser les likes
-                })
+                requests.post(URL_MSG, json={"u": st.session_state.user, "m": msg, "d": "mondial", "t": time.time(), "l": 0})
                 st.rerun()
 
         st.divider()
@@ -161,55 +132,31 @@ else:
             for k in reversed(list(data.keys())):
                 v = data[k]
                 if v.get("d") == "mondial":
-                    with st.container():
-                        st.markdown(f"<div class='message-card'>", unsafe_allow_html=True)
-                        st.write(f"👤 **{v['u']}** : {v['m']}")
-                        
-                        # Système de Like ❤️
-                        current_likes = v.get("l", 0)
-                        if st.button(f"❤️ {current_likes} Likes", key=f"like_{k}"):
-                            ajouter_like(k)
-                            st.rerun() # Rafraîchir pour voir le nouveau compte
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='message-card'><b>{v['u']}</b><br>{v['m']}</div>", unsafe_allow_html=True)
+                    if st.button(f"❤️ {v.get('l', 0)}", key=f"l_{k}"):
+                        ajouter_like(k)
+                        st.rerun()
 
-    elif menu == "🔒 Messages Privés":
-        st.header("🔒 Messages Privés")
-        ami = st.text_input("Nom de l'ami :")
+    elif menu == "💬 Messages Privés":
+        st.subheader("💬 Conversations Privées")
+        ami = st.text_input("Discuter avec :")
         if ami:
-            msg_p = st.text_input(f"Message pour {ami}...", key="private_msg")
-            if st.button("Envoyer en privé 🔒"):
-                requests.post(URL_MSG, json={
-                    "u": st.session_state.user,
-                    "m": msg_p,
-                    "d": ami,
-                    "t": time.time(),
-                    "l": 0
-                })
-                st.success("Envoyé !")
+            msg_p = st.text_input(f"Message pour {ami}...", key="priv_input")
+            if st.button("Envoyer 🔒"):
+                requests.post(URL_MSG, json={"u": st.session_state.user, "m": msg_p, "d": ami, "t": time.time(), "l": 0})
+                st.rerun()
 
             st.divider()
             data = requests.get(URL_MSG).json()
             if data:
                 for k in reversed(list(data.keys())):
                     v = data[k]
-                    # On affiche si : (Moi vers Ami) OU (Ami vers Moi)
-                    if (v.get("u") == st.session_state.user and v.get("d") == ami) or \
-                       (v.get("u") == ami and v.get("d") == st.session_state.user):
-                        with st.container():
-                            st.markdown(f"<div class='message-card'>", unsafe_allow_html=True)
-                            st.write(f"👤 **{v['u']}** : {v['m']}")
-                            
-                            # Système de Like ❤️
-                            current_likes = v.get("l", 0)
-                            if st.button(f"❤️ {current_likes} Likes", key=f"like_{k}"):
-                                ajouter_like(k)
-                                st.rerun()
-                                
-                            st.markdown("</div>", unsafe_allow_html=True)
+                    if (v.get("u") == st.session_state.user and v.get("d") == ami) or (v.get("u") == ami and v.get("d") == st.session_state.user):
+                        st.markdown(f"<div class='message-card'><b>{v['u']}</b><br>{v['m']}</div>", unsafe_allow_html=True)
+                        if st.button(f"❤️ {v.get('l', 0)}", key=f"lp_{k}"):
+                            ajouter_like(k)
+                            st.rerun()
 
-    elif menu == "🎨 Thèmes & Infos":
-        st.info("💡 Mode Sombre/Clair : Va dans Settings > Theme en haut à droite.")
-        if st.sidebar.button("Se déconnecter"):
-            st.session_state.user = None
-            st.rerun()
+    elif menu == "🚪 Déconnexion":
+        st.session_state.user = None
+        st.rerun()
