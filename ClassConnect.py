@@ -2,91 +2,100 @@ import streamlit as st
 import requests
 import time
 
-# --- CONFIGURATION (METS TON LIEN FIREBASE ICI) ---
+# --- 1. CONFIGURATION (METS TON LIEN ICI) ---
 URL_FB = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/.json"
 
-st.set_page_config(page_title="BCF Connect", page_icon="⚽", layout="centered")
+# --- 2. CONFIGURATION DE LA PAGE & THÈME ---
+# Le mode sombre/clair se règle aussi dans les paramètres Streamlit (Haut à droite > Settings > Theme)
+st.set_page_config(page_title="BCF Ultimate", page_icon="⚽", layout="centered")
 
-# --- STYLE PERSONNALISÉ (ROUGE ET NOIR) ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: white; }
-    .stButton>button { background-color: #e63946; color: white; border-radius: 20px; width: 100%; }
-    .message-card { background-color: #1b1e23; padding: 15px; border-radius: 15px; border-left: 5px solid #e63946; margin-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 3. INITIALISATION DE LA MÉMOIRE (SESSION) ---
+if 'page' not in st.session_state:
+    st.session_state.page = "login"
+if 'pseudo' not in st.session_state:
+    st.session_state.pseudo = ""
 
-# --- GESTION DE LA CONNEXION ---
-if 'connecte' not in st.session_state:
-    st.session_state.connecte = False
+# --- 4. FONCTIONS UTILES ---
+def envoyer_msg(destinataire, texte):
+    data = {
+        "expediteur": st.session_state.pseudo,
+        "destinataire": destinataire, # "mondial" ou le nom d'un ami
+        "msg": texte,
+        "date": time.time()
+    }
+    requests.post(URL_FB, json=data)
 
-if not st.session_state.connecte:
-    st.title("🔴 B.C.F CONNECT")
-    st.subheader("Réseau Social Officiel - Bournemouth City")
-    pseudo_input = st.text_input("Ton Pseudo :", placeholder="Ex: didou")
+# --- 5. PAGE DE CONNEXION (SIGN IN) ---
+if st.session_state.page == "login":
+    st.title("🔐 Connexion BCF")
+    user = st.text_input("Pseudo")
+    mdp = st.text_input("Mot de passe", type="password")
     
-    if st.button("Entrer dans le Club 🚀"):
-        if pseudo_input:
-            st.session_state.pseudo = pseudo_input
-            st.session_state.connecte = True
+    if st.button("Se connecter"):
+        # Tu peux changer "1234" par ton vrai mot de passe secret
+        if mdp == "BCF2026": 
+            st.session_state.pseudo = user
+            st.session_state.page = "accueil"
             st.rerun()
+        else:
+            st.error("Mot de passe incorrect !")
+
+# --- 6. INTERFACE PRINCIPALE ---
 else:
-    # --- INTERFACE PRINCIPALE ---
-    st.title(f"⚽ Salut, {st.session_state.pseudo} !")
-    
-    # ZONE DE POST (Texte + Photo)
-    with st.expander("Créer un nouveau post 📸", expanded=False):
-        texte = st.text_area("Quoi de neuf dans le club ?")
-        photo_url = st.text_input("Lien d'une photo (URL) :", placeholder="Colle un lien d'image ici...")
+    st.sidebar.title(f"⚽ {st.session_state.pseudo}")
+    menu = st.sidebar.radio("Navigation", ["Chat Mondial", "Amis (Privé)", "Paramètres"])
+
+    # --- SECTION : CHAT MONDIAL ---
+    if menu == "Chat Mondial":
+        st.header("🌍 Chat Mondial")
+        with st.container():
+            nouveau_msg = st.text_input("Ton message mondial...")
+            if st.button("Envoyer 🚀"):
+                if nouveau_msg:
+                    envoyer_msg("mondial", nouveau_msg)
+                    st.rerun()
         
-        if st.button("Publier sur le mur"):
-            if texte or photo_url:
-                data = {
-                    "pseudo": st.session_state.pseudo,
-                    "msg": texte,
-                    "img": photo_url,
-                    "likes": 0,
-                    "date": time.time()
-                }
-                requests.post(URL_FB, json=data)
-                st.success("Post envoyé !")
-                time.sleep(1)
-                st.rerun()
-
-    st.divider()
-
-    # --- FIL D'ACTUALITÉ ---
-    st.subheader("Le Mur du Club")
-    try:
+        st.divider()
+        # Affichage
         r = requests.get(URL_FB).json()
         if r:
-            # On trie par date
             for key in reversed(list(r.keys())):
                 item = r[key]
-                if isinstance(item, dict) and ("msg" in item or "img" in item):
-                    with st.container():
-                        st.markdown(f"<div class='message-card'>", unsafe_allow_html=True)
-                        st.write(f"👤 **{item.get('pseudo', 'Anonyme')}**")
-                        
-                        if item.get('msg'):
-                            st.write(item['msg'])
-                        
-                        if item.get('img'):
-                            st.image(item['img'], use_container_width=True)
-                        
-                        # SYSTÈME DE LIKE
-                        nb_likes = item.get('likes', 0)
-                        if st.button(f"❤️ {nb_likes} Likes", key=key):
-                            # Mise à jour des likes dans Firebase
-                            requests.patch(f"{URL_FB[:-5]}/{key}.json", json={"likes": nb_likes + 1})
-                            st.rerun()
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Aucun post pour le moment.")
-    except Exception as e:
-        st.error(f"Erreur : {e}")
+                if isinstance(item, dict) and item.get("destinataire") == "mondial":
+                    with st.chat_message("user"):
+                        st.write(f"**{item['expediteur']}**: {item['msg']}")
 
-    if st.sidebar.button("Déconnexion"):
-        st.session_state.connecte = False
-        st.rerun()
+    # --- SECTION : AMIS (PRIVÉ) ---
+    elif menu == "Amis (Privé)":
+        st.header("👥 Discussions Privées")
+        ami = st.text_input("Nom de l'ami avec qui discuter :")
+        
+        if ami:
+            nouveau_prive = st.text_input(f"Message pour {ami}...")
+            if st.button("Envoyer en privé"):
+                if nouveau_prive:
+                    envoyer_msg(ami, nouveau_prive)
+                    st.success("Message envoyé !")
+            
+            st.divider()
+            # Affichage uniquement des messages entre TOI et l'AMI
+            r = requests.get(URL_FB).json()
+            if r:
+                for key in reversed(list(r.keys())):
+                    item = r[key]
+                    if isinstance(item, dict):
+                        exp = item.get("expediteur")
+                        dest = item.get("destinataire")
+                        # On ne montre que si c'est entre vous deux
+                        if (exp == st.session_state.pseudo and dest == ami) or (exp == ami and dest == st.session_state.pseudo):
+                            with st.chat_message("user"):
+                                st.write(f"**{exp}**: {item['msg']}")
+
+    # --- SECTION : PARAMÈTRES ---
+    elif menu == "Paramètres":
+        st.header("⚙️ Paramètres")
+        st.write("Pour changer le **Mode Sombre/Clair** :")
+        st.info("Clique sur les 3 points en haut à droite > Settings > Theme > Light ou Dark.")
+        if st.button("Se déconnecter"):
+            st.session_state.page = "login"
+            st.rerun()
