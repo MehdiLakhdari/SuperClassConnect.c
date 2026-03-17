@@ -8,7 +8,7 @@ URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="ClassConnect Insta Pro", page_icon="📸", layout="centered")
+st.set_page_config(page_title="ClassConnect Official", page_icon="🛡️", layout="centered")
 
 # --- 2. GESTION DU THÈME ---
 if 'theme' not in st.session_state: st.session_state.theme = "sombre"
@@ -36,7 +36,6 @@ st.markdown(f"""
         object-fit: cover; margin-right: 10px;
     }}
     .stButton>button {{ border-radius: 8px; font-weight: bold; border: none; }}
-    .del-btn>button {{ background-color: #ff4b4b !important; color: white !important; font-size: 10px !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -51,30 +50,29 @@ def get_pfp(pseudo, users_data):
     user_info = users_data.get(pseudo, {})
     return user_info.get("pfp") if user_info.get("pfp") else "https://cdn-icons-png.flaticon.com/512/149/149071.png"
 
-def supprimer_post(msg_id):
-    requests.delete(f"{URL_BASE}messages/{msg_id}.json")
-
-# --- 4. AUTHENTIFICATION ---
+# --- 4. AUTHENTIFICATION (CORRIGÉE AVEC DES KEYS UNIQUES) ---
 users_data = charger(URL_USERS)
 
 if st.session_state.user is None:
     st.title("📸 ClassConnect")
     tab1, tab2 = st.tabs(["Connexion", "Inscription"])
+    
     with tab1:
-        u = st.text_input("Pseudo")
-        p = st.text_input("Mot de passe", type="password")
-        if st.button("Se connecter"):
+        u = st.text_input("Pseudo", key="login_username")
+        p = st.text_input("Mot de passe", type="password", key="login_password") # KEY UNIQUE ICI
+        if st.button("Se connecter", key="btn_login"):
             if u in users_data and str(users_data[u].get("mdp")) == str(p):
                 st.session_state.user = u
                 st.rerun()
             else: st.error("Identifiants incorrects.")
+            
     with tab2:
-        nu = st.text_input("Nouveau Pseudo")
-        np = st.text_input("Mot de passe", type="password")
-        if st.button("S'inscrire"):
+        nu = st.text_input("Nouveau Pseudo", key="reg_username")
+        np = st.text_input("Mot de passe", type="password", key="reg_password") # KEY UNIQUE ICI
+        if st.button("S'inscrire", key="btn_reg"):
             if nu and np:
                 requests.patch(URL_USERS, json={nu: {"mdp": np, "pfp": "", "amis": {}}})
-                st.success("Compte créé !")
+                st.success("Compte créé ! Connecte-toi.")
 
 # --- 5. LOGIQUE DES PAGES ---
 else:
@@ -94,19 +92,21 @@ else:
                 st.rerun()
         
         msgs = charger(URL_MSG)
-        for k in reversed(list(msgs.keys())):
-            v = msgs[k]
-            if v.get("d") == "mondial":
-                p = get_pfp(v['u'], users_data)
-                st.markdown(f"<div class='message-card'><img src='{p}' class='pfp-mini'><b>{v['u']}</b></div>", unsafe_allow_html=True)
-                if v.get("m"): st.write(v["m"])
-                if v.get("i"): st.image(v["i"])
-                
-                # Option de suppression si c'est MON post
-                if v.get("u") == me:
-                    if st.button(f"🗑️ Supprimer mon post", key=f"del_{k}"):
-                        supprimer_post(k)
-                        st.rerun()
+        if msgs:
+            for k in reversed(list(msgs.keys())):
+                v = msgs[k]
+                if v.get("d") == "mondial":
+                    p = get_pfp(v['u'], users_data)
+                    st.markdown(f"<div class='message-card'><img src='{p}' class='pfp-mini'><b>{v['u']}</b></div>", unsafe_allow_html=True)
+                    if v.get("m"): st.write(v["m"])
+                    if v.get("i"): st.image(v["i"])
+                    
+                    if v.get("u") == me:
+                        with st.popover("🗑️ Supprimer"):
+                            st.warning("Es-tu sûr de vouloir supprimer ce post ?")
+                            if st.button("Oui, supprimer", key=f"del_{k}"):
+                                requests.delete(f"{URL_BASE}messages/{k}.json")
+                                st.rerun()
 
     # --- PAGE 2 : MESSAGES PRIVÉS ---
     elif page == "💬 Direct Messages":
@@ -143,27 +143,27 @@ else:
                     st.rerun()
             
             msgs = charger(URL_MSG)
-            for k in reversed(list(msgs.keys())):
-                v = msgs[k]
-                if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                    # CORRECTION : TOUT À GAUCHE
-                    color = btn if v['u'] == me else "#333333"
-                    pseudo_label = "Moi" if v['u'] == me else v['u']
-                    st.markdown(f"""
-                        <div style='text-align: left; margin-bottom: 5px;'>
-                            <span style='background-color:{color}; color:white; padding:8px 12px; border-radius:12px; display:inline-block;'>
-                                <small><b>{pseudo_label}:</b></small><br>{v['m']}
-                            </span>
-                        </div>
-                    """, unsafe_allow_html=True)
+            if msgs:
+                for k in reversed(list(msgs.keys())):
+                    v = msgs[k]
+                    if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
+                        color = btn if v['u'] == me else "#333333"
+                        label = "Moi" if v['u'] == me else v['u']
+                        st.markdown(f"""
+                            <div style='text-align: left; margin-bottom: 5px;'>
+                                <span style='background-color:{color}; color:white; padding:8px 12px; border-radius:12px; display:inline-block;'>
+                                    <small><b>{label}:</b></small><br>{v['m']}
+                                </span>
+                            </div>
+                        """, unsafe_allow_html=True)
 
     # --- PAGE 3 : PARAMÈTRES ---
     elif page == "⚙️ Paramètres":
         st.header("⚙️ Paramètres")
         new_pfp = st.text_input("Lien de ta photo de profil (URL)", value=my_pfp)
-        if st.button("Mettre à jour le profil"):
+        if st.button("Sauvegarder les modifications"):
             requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"pfp": new_pfp})
-            st.success("C'est fait !")
+            st.success("Profil mis à jour !")
         
         st.divider()
         c1, c2 = st.columns(2)
