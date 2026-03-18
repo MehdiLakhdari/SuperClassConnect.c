@@ -2,165 +2,151 @@ import streamlit as st
 import requests
 import time
 
-# --- 1. CONFIGURATION & SON ---
-st.set_page_config(page_title="Connect Class Algeria", page_icon="😊", layout="wide")
-
-# Fonction pour jouer un son de notification
-def play_notif_sound():
-    sound_html = """
-    <audio autoplay>
-        <source src="https://www.soundjay.com/buttons/beep-01a.mp3" type="audio/mpeg">
-    </audio>
-    """
-    st.markdown(sound_html, unsafe_allow_html=True)
-
-# --- 2. DESIGN NOIR & ROUGE ---
-st.markdown("""
-    <style>
-    header {visibility: hidden;}
-    .stApp { background-color: #050505; color: #ffffff; }
-    
-    /* Barre latérale personnalisée */
-    [data-testid="stSidebar"] {
-        background-color: #121212 !important;
-        border-right: 2px solid #FF0000;
-    }
-
-    /* LOGO CC ORANGE (On le garde comme demandé) */
-    .logo-box {
-        background: linear-gradient(135deg, #FF8C00, #FF4500);
-        width: 60px; height: 60px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto; font-size: 35px; font-weight: bold; color: white;
-    }
-
-    /* BOUTONS ROUGES */
-    .stButton>button { 
-        background: linear-gradient(90deg, #CC0000, #8B0000) !important; 
-        color: white !important; border-radius: 5px; font-weight: bold; width: 100%;
-        border: none; transition: 0.3s;
-    }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 10px #FF0000; }
-
-    /* CARTES MESSAGES */
-    .msg-card { 
-        background: #1a1a1a; padding: 15px; border-radius: 8px; 
-        border-left: 5px solid #FF0000; margin-bottom: 10px; 
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
+# --- 1. CONFIGURATION ---
 URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/"
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-# --- 3. LOGIQUE SESSION ---
-if 'user' not in st.session_state: st.session_state.user = None
-if 'page' not in st.session_state: st.session_state.page = "Mur"
-if 'last_msg_count' not in st.session_state: st.session_state.last_msg_count = 0
-if 'sound_enabled' not in st.session_state: st.session_state.sound_enabled = False
+st.set_page_config(page_title="Connect Class Algeria", page_icon="⚽", layout="wide")
 
-def get_db(url):
+# --- 2. INITIALISATION ---
+if 'user' not in st.session_state: st.session_state.user = None
+if 'page' not in st.session_state: st.session_state.page = "🏠 Mur"
+if 'chat_target' not in st.session_state: st.session_state.chat_target = None
+
+# --- 3. CHARGEMENT DATA ---
+def charger(url):
     try:
         r = requests.get(url, timeout=5)
-        return r.json() if r.status_code == 200 else {}
+        return r.json() if r.status_code == 200 and r.json() else {}
     except: return {}
 
-# --- 4. INTERFACE ---
+data_u = charger(URL_USERS)
+all_msgs = charger(URL_MSG)
 
-data_u = get_db(URL_USERS)
-all_m = get_db(URL_MSG)
+# --- 4. STYLE PAR CLUB ---
+user_club = "PSG"
+if st.session_state.user and st.session_state.user in data_u:
+    user_club = data_u[st.session_state.user].get("club", "PSG")
 
-# Vérification auto des nouveaux messages pour le son
-current_count = len(all_m) if all_m else 0
-if st.session_state.sound_enabled and current_count > st.session_state.last_msg_count:
-    play_notif_sound()
-st.session_state.last_msg_count = current_count
+styles = {
+    "PSG": {"bg": "#001C3F", "accent": "#E30613", "txt": "white"},
+    "Barça": {"bg": "#004D98", "accent": "#A50044", "txt": "#EDBB00"},
+    "Juventus": {"bg": "#000000", "accent": "#FFFFFF", "txt": "#000000"}
+}
+s = styles.get(user_club, styles["PSG"])
 
-if st.session_state.user is None:
-    st.markdown("<div class='logo-box'>C</div><h3 style='text-align:center;'>Class Connect Algeria 😊</h3>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["Connexion", "Inscription"])
-    with t1:
-        u = st.text_input("Pseudo", key="l_u")
-        p = st.text_input("Mdp", type="password", key="l_p")
-        if st.button("SE CONNECTER"):
-            if u in data_u and str(data_u[u].get("mdp")) == str(p):
-                st.session_state.user = u
-                st.rerun()
+st.markdown(f"""
+    <style>
+    .stApp {{ background-color: {s['bg']} !important; color: white !important; }}
+    [data-testid="stSidebar"] {{ 
+        background-color: rgba(0,0,0,0.9) !important; 
+        border-right: 3px solid {s['accent']} !important;
+        min-width: 250px !important;
+    }}
+    .stButton>button {{ 
+        background-color: {s['accent']} !important; color: {s['txt']} !important; 
+        border-radius: 8px; font-weight: bold; border: 1px solid white; width: 100%;
+    }}
+    .msg-card {{ background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; border-left: 5px solid {s['accent']}; margin-bottom: 8px; }}
+    </style>
+    """, unsafe_allow_html=True)
 
-else:
-    me = st.session_state.user
-    
-    # --- RETOUR DE LA BARRE LATÉRALE ---
-    with st.sidebar:
-        st.markdown("<div class='logo-box'>C</div>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align:center;'>@{me}</h3>", unsafe_allow_html=True)
+# --- 5. BARRE LATÉRALE (SORTIE DE TOUTE CONDITION) ---
+with st.sidebar:
+    st.markdown(f"<h1 style='color:{s['accent']}; text-align:center;'>CC</h1>", unsafe_allow_html=True)
+    if st.session_state.user:
+        st.write(f"⚽ Joueur : **{st.session_state.user}**")
+        st.write(f"🏟️ Club : **{user_club}**")
         st.divider()
+        if st.button("🏠 LE MUR"): st.session_state.page = "Mur"
         
-        if st.button("🏠 MUR MONDIAL"): st.session_state.page = "Mur"
-        if st.button("💬 MESSAGES PRIVÉS"): st.session_state.page = "Chat"
+        # Décompte Notifs
+        notifs = []
+        if all_msgs:
+            for m in all_msgs.values():
+                if m.get("d") == st.session_state.user and m["u"] not in notifs:
+                    notifs.append(m["u"])
+        
+        label_msg = f"💬 MESSAGES ({len(notifs)})" if notifs else "💬 MESSAGES"
+        if st.button(label_msg): st.session_state.page = "Messages"
         
         st.divider()
-        st.write("🔔 **Paramètres**")
-        st.session_state.sound_enabled = st.checkbox("Activer les sons 🔊", value=st.session_state.sound_enabled)
-        st.caption("Activez ceci pour entendre un 'bip' lors des nouveaux messages.")
-        
-        st.divider()
-        if st.button("🚪 QUITTER"):
+        if st.button("🚪 DÉCONNEXION"):
             st.session_state.user = None
             st.rerun()
+    else:
+        st.info("Connectez-vous pour voir le menu")
 
-    # --- PAGES ---
+# --- 6. CONTENU PRINCIPAL ---
+if st.session_state.user is None:
+    st.markdown("<h1 style='text-align:center;'>CONNECT CLASS ALGERIA</h1>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["CONNEXION", "REJOINDRE LE CLUB"])
+    
+    with t1:
+        u_in = st.text_input("Pseudo", key="login_u")
+        p_in = st.text_input("Mdp", type="password", key="login_p")
+        if st.button("S'IDENTIFIER"):
+            if u_in in data_u and str(data_u[u_in].get("mdp")) == str(p_in):
+                st.session_state.user = u_in
+                st.rerun()
+            else:
+                st.error("❌ Identifiants incorrects")
+
+    with t2:
+        nu = st.text_input("Nouveau Pseudo", key="reg_u")
+        np = st.text_input("Nouveau Mdp", type="password", key="reg_p")
+        nclub = st.selectbox("Ton Club", ["PSG", "Barça", "Juventus"])
+        if st.button("CRÉER MON COMPTE"):
+            if nu and np:
+                requests.patch(URL_USERS, json={nu: {"mdp": np, "club": nclub, "pfp": ""}})
+                st.success("Compte validé ! Connecte-toi.")
+
+else:
+    # PAGES UNE FOIS CONNECTÉ
     if st.session_state.page == "Mur":
-        st.title("🌍 Mur Mondial")
-        with st.expander("📝 Publier"):
-            txt = st.text_area("Message")
-            img = st.text_input("Lien Image URL")
-            if st.button("POSTER"):
-                requests.post(URL_MSG, json={"u": me, "m": txt, "i": img, "d": "mondial", "t": time.time()})
+        st.title(f"🏠 Mur {user_club}")
+        msg_txt = st.text_input("Quoi de neuf ?")
+        if st.button("POSTER"):
+            if msg_txt:
+                requests.post(URL_MSG, json={"u": st.session_state.user, "m": msg_txt, "d": "mondial", "t": time.time()})
                 st.rerun()
         
-        if all_m:
-            for k in reversed(list(all_m.keys())):
-                v = all_m[k]
+        if all_msgs:
+            for v in reversed(list(all_msgs.values())):
                 if v.get("d") == "mondial":
-                    st.markdown(f"<div class='msg-card'><b>@{v['u']}</b><br>{v.get('m','')}</div>", unsafe_allow_html=True)
-                    if v.get("i"): st.image(v["i"], use_container_width=True)
+                    st.markdown(f"<div class='msg-card'><b>{v['u']}</b> : {v['m']}</div>", unsafe_allow_html=True)
 
-    elif st.session_state.page == "Chat":
-        st.title("💬 Messagerie")
-        col_f, col_c = st.columns([1, 2])
-        with col_f:
-            st.write("👥 **Amis**")
-            amis = data_u.get(me, {}).get("amis", {})
-            for a in amis:
-                if st.button(f"👤 {a}", key=f"chat_{a}"):
-                    st.session_state.chat_target = a
-                    st.rerun()
+    elif st.session_state.page == "Messages":
+        st.title("💬 Messagerie Directe")
+        
+        # Liste notifs
+        if 'notifs' in locals() and notifs:
+            st.write("📩 Nouveaux messages de :")
+            for sender in notifs:
+                if st.button(f"Répondre à {sender}", key=f"notif_{sender}"):
+                    st.session_state.chat_target = sender
+        
+        target = st.text_input("Pseudo de l'ami...")
+        if st.button("LANCER LE CHAT"):
+            if target in data_u: st.session_state.chat_target = target
+
+        if st.session_state.chat_target:
+            dest = st.session_state.chat_target
+            st.subheader(f"Discussion avec {dest}")
+            if all_msgs:
+                for v in all_msgs.values():
+                    if (v.get("u") == st.session_state.user and v.get("d") == dest) or (v.get("u") == dest and v.get("d") == st.session_state.user):
+                        side = "right" if v['u'] == st.session_state.user else "left"
+                        bg_c = s['accent'] if v['u'] == st.session_state.user else "#333"
+                        st.markdown(f"<div style='text-align:{side};'><span style='background:{bg_c}; padding:10px; border-radius:10px; display:inline-block; margin:2px;'>{v['m']}</span></div>", unsafe_allow_html=True)
             
-            st.divider()
-            nf = st.text_input("Ajouter un pseudo").strip()
-            if st.button("AJOUTER"):
-                if nf in data_u and nf != me:
-                    requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={nf: True})
+            m_in = st.text_input("Message...", key="m_in")
+            if st.button("ENVOYER"):
+                if m_in:
+                    requests.post(URL_MSG, json={"u": st.session_state.user, "m": m_in, "d": dest, "t": time.time()})
                     st.rerun()
 
-        with col_c:
-            target = st.session_state.get("chat_target")
-            if target:
-                st.write(f"Discussion avec **{target}**")
-                if all_m:
-                    for k, v in all_m.items():
-                        if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                            side = "right" if v['u'] == me else "left"
-                            color = "#CC0000" if side == "right" else "#333"
-                            st.markdown(f"<div style='text-align:{side};'><span style='background:{color}; padding:8px; border-radius:10px; display:inline-block; margin:5px;'>{v['m']}</span></div>", unsafe_allow_html=True)
-                
-                m_in = st.text_input("Écrire...", key="chat_input")
-                if st.button("ENVOYER"):
-                    requests.post(URL_MSG, json={"u": me, "m": m_in, "d": target, "t": time.time()})
-                    st.rerun()
-
-# --- ACTUALISATION ---
-time.sleep(10)
+# Auto-refresh
+time.sleep(4)
 st.rerun()
