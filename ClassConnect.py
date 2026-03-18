@@ -33,7 +33,6 @@ URL_USERS = f"{URL_BASE}utilisateurs.json"
 
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "Mur"
-if 'chat_target' not in st.session_state: st.session_state.chat_target = None
 if 'last_count' not in st.session_state: st.session_state.last_count = 0
 
 def get_db(url):
@@ -55,15 +54,43 @@ if st.session_state.user and curr_count > st.session_state.last_count:
         has_notif = True
 
 if st.session_state.user is None:
-    st.markdown("<h2 style='text-align:center; color:#FF8C00;'>Connect Class 😊</h2>", unsafe_allow_html=True)
-    u = st.text_input("Pseudo").strip()
-    p = st.text_input("Mdp", type="password").strip()
-    if st.button("SE CONNECTER"):
-        if u in data_u and str(data_u[u].get("mdp")) == str(p):
-            st.session_state.user = u
-            st.rerun()
+    st.markdown("<h2 style='text-align:center; color:#FF8C00;'>Connect Class Algeria 😊</h2>", unsafe_allow_html=True)
+    
+    # --- ONGLETS CONNEXION / INSCRIPTION ---
+    tab_login, tab_signup = st.tabs(["🔴 SE CONNECTER", "🟠 CRÉER UN COMPTE"])
+    
+    with tab_login:
+        u = st.text_input("Pseudo").strip()
+        p = st.text_input("Mdp", type="password").strip()
+        if st.button("ENTRER"):
+            if u in data_u and str(data_u[u].get("mdp")) == str(p):
+                st.session_state.user = u
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects")
+
+    with tab_signup:
+        new_u = st.text_input("Choisis un Pseudo").strip()
+        new_p = st.text_input("Choisis un Mdp", type="password").strip()
+        confirm_p = st.text_input("Confirme le Mdp", type="password").strip()
+        
+        if st.button("CRÉER MON COMPTE 🚀"):
+            if not new_u or not new_p:
+                st.warning("Remplis tous les champs !")
+            elif new_u in data_u:
+                st.error("Ce pseudo est déjà pris !")
+            elif new_p != confirm_p:
+                st.error("Les mots de passe ne correspondent pas !")
+            else:
+                # Création du compte dans Firebase
+                requests.patch(URL_USERS, json={new_u: {"mdp": new_p, "amis": {"Admin": True}}})
+                st.success("Compte créé ! Connecte-toi maintenant.")
+                time.sleep(2)
+                st.rerun()
+
 else:
     me = st.session_state.user
+    # ... (Le reste du code reste le même pour le Mur, le Chat et les Inconnus)
     st.markdown(f"<div class='nav-bar'>🟠 <b>@{me}</b> | Connecté</div>", unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns(3)
@@ -103,7 +130,6 @@ else:
         with tab_amis:
             col_l, col_r = st.columns([1, 2])
             with col_l:
-                st.write("**Ma liste**")
                 for a in mes_amis:
                     is_t = data_u.get(a, {}).get("typing_to") == me
                     label = f"🟢 {a}" if is_t else f"👤 {a}"
@@ -111,13 +137,11 @@ else:
                         st.session_state.chat_target = a
                         st.rerun()
                 st.divider()
-                new_f = st.text_input("Ajouter un pseudo").strip()
+                new_f = st.text_input("Pseudo à ajouter").strip()
                 if st.button("AJOUTER 👤+"):
                     if new_f in data_u and new_f != me:
                         requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={new_f: True})
-                        requests.patch(f"{URL_BASE}utilisateurs/{new_f}/amis.json", json={me: True}) # Ami des deux côtés
-                        st.success(f"{new_f} ajouté !")
-                        time.sleep(1)
+                        requests.patch(f"{URL_BASE}utilisateurs/{new_f}/amis.json", json={me: True})
                         st.rerun()
 
             with col_r:
@@ -125,7 +149,7 @@ else:
                 if t and t in mes_amis:
                     st.subheader(f"Chat avec {t}")
                     room = "".join(sorted([me, t]))
-                    st.markdown(f'<a href="https://meet.jit.si/CC_{room}" target="_blank"><button style="background:#28a745; color:white; border:none; padding:8px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📞 APPEL VOCAL</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="https://meet.jit.si/CC_{room}" target="_blank"><button style="background:#28a745; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📞 APPEL VOCAL</button></a>', unsafe_allow_html=True)
                     if all_m:
                         for k, v in all_m.items():
                             if (v.get("u") == me and v.get("d") == t) or (v.get("u") == t and v.get("d") == me):
@@ -141,7 +165,6 @@ else:
                         st.rerun()
 
         with tab_inc:
-            st.write("**Demandes de message**")
             inc_list = []
             if all_m:
                 for k, v in all_m.items():
