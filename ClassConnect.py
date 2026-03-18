@@ -2,155 +2,156 @@ import streamlit as st
 import requests
 import time
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION PLEIN ÉCRAN ---
+st.set_page_config(page_title="Connect Class Algeria", page_icon="⚽", layout="wide")
+
+# --- 2. CACHER TOUT LE SUPERFLU (REPLIT/STREAMLIT) ---
+st.markdown("""
+    <style>
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stApp { background-color: #0e1117; color: white; }
+    
+    /* LOGO ORANGE DÉGRADÉ PRO */
+    .logo-box {
+        background: linear-gradient(135deg, #FF8C00 0%, #FF4500 100%);
+        width: 80px; height: 80px; border-radius: 18px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto; font-size: 50px; font-weight: bold; color: white;
+        box-shadow: 0 10px 20px rgba(255, 69, 0, 0.3);
+    }
+    .logo-text { 
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 26px; font-weight: bold; color: #FF8C00; 
+        text-align: center; margin-top: 10px; text-transform: uppercase;
+    }
+
+    /* BOUTONS FIXES */
+    .stButton>button { 
+        background: linear-gradient(90deg, #FF8C00, #FF4500) !important; 
+        color: white !important; border-radius: 12px; border: none; 
+        font-weight: bold; width: 100%; height: 45px; transition: 0.3s;
+    }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4); }
+    
+    /* CARTES DU MUR */
+    .msg-card { 
+        background: #1c1f26; padding: 20px; border-radius: 15px; 
+        margin-bottom: 15px; border-left: 6px solid #FF8C00;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. INITIALISATION (SÉCURITÉ) ---
 URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/"
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
-st.set_page_config(page_title="Connect Class Algeria", page_icon="⚽", layout="wide")
-
-# --- 2. ÉTAT DE LA SESSION ---
 if 'user' not in st.session_state: st.session_state.user = None
-if 'page' not in st.session_state: st.session_state.page = "🏠 Mur"
-if 'chat_target' not in st.session_state: st.session_state.chat_target = None
+if 'page' not in st.session_state: st.session_state.page = "Mur"
 
-# --- 3. FONCTIONS ---
 def charger(url):
     try:
         r = requests.get(url, timeout=5)
         return r.json() if r.status_code == 200 and r.json() else {}
     except: return {}
 
-# --- 4. RÉCUPÉRATION DATA ---
+# --- 4. INTERFACE DE CONNEXION ---
 data_u = charger(URL_USERS)
-all_msgs = charger(URL_MSG)
-
-# --- 5. SYSTÈME DE COULEURS ÉDITION CLUBS ---
-user_info = data_u.get(st.session_state.user, {})
-user_club = user_info.get("club", "PSG")
-
-# Dictionnaire de styles précis
-styles = {
-    "PSG": {"bg": "#001C3F", "accent": "#E30613", "txt": "#FFFFFF", "card": "rgba(255,255,255,0.1)"},
-    "Barça": {"bg": "#004D98", "accent": "#A50044", "txt": "#EDBB00", "card": "rgba(165,0,68,0.2)"},
-    "Juventus": {"bg": "#000000", "accent": "#FFFFFF", "txt": "#000000", "card": "rgba(255,255,255,0.9)"}
-}
-s = styles.get(user_club)
-
-# Injection CSS Forcée
-st.markdown(f"""
-    <style>
-    .stApp {{ background-color: {s['bg']} !important; color: white !important; }}
-    [data-testid="stSidebar"] {{ background-color: rgba(0,0,0,0.7) !important; border-right: 4px solid {s['accent']} !important; }}
-    .stButton>button {{ 
-        background-color: {s['accent']} !important; 
-        color: {s['txt']} !important; 
-        border: 2px solid white !important;
-        font-weight: bold !important;
-        border-radius: 10px !important;
-    }}
-    .msg-card {{ 
-        background: {s['card']}; 
-        padding: 15px; border-radius: 12px; 
-        border-left: 6px solid {s['accent']}; 
-        margin-bottom: 10px;
-        color: {"black" if user_club=="Juventus" else "white"};
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 6. LOGIQUE ---
 
 if st.session_state.user is None:
-    st.markdown("<h1 style='text-align:center;'>CC - ALGERIA</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["CONNEXION", "REJOINDRE LE CLUB"])
-    with t1:
+    st.markdown("<div class='logo-box'>C</div><div class='logo-text'>Class Connect Algeria</div>", unsafe_allow_html=True)
+    tab_log, tab_reg = st.tabs(["Connexion", "Créer un compte"])
+    
+    with tab_log:
         u = st.text_input("Pseudo", key="l_u")
-        p = st.text_input("Mdp", type="password", key="l_p")
-        if st.button("S'IDENTIFIER"):
+        p = st.text_input("Mot de passe", type="password", key="l_p")
+        if st.button("ACCÉDER AU CLUB"):
             if u in data_u and str(data_u[u].get("mdp")) == str(p):
                 st.session_state.user = u
                 st.rerun()
-    with t2:
+            else: st.error("Identifiants incorrects")
+
+    with tab_reg:
         nu = st.text_input("Nouveau Pseudo", key="n_u")
         np = st.text_input("Mot de passe", type="password", key="n_p")
-        nclub = st.selectbox("Ton Club de Coeur", ["PSG", "Barça", "Juventus"])
-        if st.button("CRÉER MON COMPTE"):
-            requests.patch(URL_USERS, json={nu: {"mdp": np, "club": nclub, "pfp": ""}})
-            st.success("Compte validé ! Connecte-toi.")
+        club = st.selectbox("Ton Club", ["Paris SG", "Juventus", "Arsenal"])
+        if st.button("S'INSCRIRE ET ENTRER"):
+            if nu and np:
+                requests.patch(URL_USERS, json={nu: {"mdp": np, "club": club}})
+                st.session_state.user = nu
+                st.rerun()
 
+# --- 5. INTERFACE PRINCIPALE (FIXE) ---
 else:
     me = st.session_state.user
-    
-    # Détection automatique de messages reçus (NOTIFS)
-    contacts_actifs = []
-    if all_msgs:
-        for m in all_msgs.values():
-            if m.get("d") == me:
-                if m["u"] not in contacts_actifs: contacts_actifs.append(m["u"])
+    my_club = data_u.get(me, {}).get("club", "Fan")
 
-    # --- SIDEBAR ---
+    # Barre de navigation fixe à gauche
     with st.sidebar:
-        st.markdown(f"<h1 style='color:{s['accent']};'>CC</h1>", unsafe_allow_html=True)
-        st.write(f"Utilisateur : **{me}**")
-        st.write(f"Club : **{user_club}**")
+        st.markdown("<div class='logo-box' style='width:60px; height:60px; font-size:35px;'>C</div>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align:center;'>{me}</h3>", unsafe_allow_html=True)
+        st.write(f"⚽ Club : **{my_club}**")
         st.divider()
-        if st.button("🏠 LE MUR"): st.session_state.page = "Mur"
-        label = f"💬 MESSAGES ({len(contacts_actifs)})" if contacts_actifs else "💬 MESSAGES"
-        if st.button(label): st.session_state.page = "Messages"
-        if st.button("⚙️ PROFIL"): st.session_state.page = "Settings"
+        
+        # Navigation par boutons (plus stable que radio)
+        if st.button("🏠 MUR MONDIAL"): 
+            st.session_state.page = "Mur"
+            st.rerun()
+        if st.button("💬 MESSAGES PRIVÉS"): 
+            st.session_state.page = "Chat"
+            st.rerun()
+        
         st.divider()
-        if st.button("🚪 QUITTER"):
+        if st.button("🚪 DÉCONNEXION"):
             st.session_state.user = None
             st.rerun()
 
-    # --- PAGES ---
+    # --- LOGIQUE DES PAGES (INDÉPENDANCE TOTALE) ---
     if st.session_state.page == "Mur":
         st.title("🏠 Mur Mondial")
-        txt = st.text_input("Écris quelque chose sur le mur...")
-        if st.button("POSTER"):
-            requests.post(URL_MSG, json={"u": me, "m": txt, "d": "mondial", "t": time.time()})
-            st.rerun()
+        with st.expander("📝 Publier un message"):
+            txt = st.text_area("Écris quelque chose...")
+            if st.button("DIFFUSER 🚀"):
+                if txt:
+                    requests.post(URL_MSG, json={"u": me, "c": my_club, "m": txt, "d": "mondial", "t": time.time()})
+                    st.rerun()
         
-        if all_msgs:
-            for v in reversed(list(all_msgs.values())):
+        msgs = charger(URL_MSG)
+        if msgs:
+            for k in reversed(list(msgs.keys())):
+                v = msgs[k]
                 if v.get("d") == "mondial":
-                    st.markdown(f"<div class='msg-card'><b>{v['u']}</b> : {v['m']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"""
+                        <div class='msg-card'>
+                            <b style='color:#FF8C00;'>@{v['u']}</b> <small>({v.get('c','Fan')})</small><br>
+                            <p style='margin-top:10px; font-size:18px;'>{v['m']}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-    elif st.session_state.page == "Messages":
-        st.title("💬 Messagerie")
+    elif st.session_state.page == "Chat":
+        st.title("💬 Messages Privés")
+        target = st.text_input("Pseudo du destinataire")
         
-        # Affichage des discussions en cours
-        if contacts_actifs:
-            st.write("📩 Tu as reçu des messages de :")
-            for c in contacts_actifs:
-                if st.button(f"Répondre à {c}"):
-                    st.session_state.chat_target = c
-        
-        target = st.text_input("Chercher un pseudo pour discuter...")
-        if st.button("LANCER LE CHAT"):
-            if target in data_u: st.session_state.chat_target = target
+        if target:
+            if target in data_u:
+                st.write(f"Conversation avec **{target}**")
+                msgs = charger(URL_MSG)
+                for k, v in msgs.items():
+                    if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
+                        side = "right" if v['u'] == me else "left"
+                        bg = "#FF8C00" if v['u'] == me else "#333"
+                        st.markdown(f"<div style='text-align:{side};'><span style='background:{bg}; padding:10px; border-radius:12px; display:inline-block; margin:5px;'>{v['m']}</span></div>", unsafe_allow_html=True)
+                
+                msg_in = st.text_input("Ton message...", key="chat_in")
+                if st.button("ENVOYER 📩"):
+                    if msg_in:
+                        requests.post(URL_MSG, json={"u": me, "m": msg_in, "d": target, "t": time.time()})
+                        st.rerun()
+            else:
+                st.warning("Utilisateur introuvable.")
 
-        if st.session_state.chat_target:
-            dest = st.session_state.chat_target
-            st.divider()
-            st.subheader(f"Chat avec {dest}")
-            if all_msgs:
-                for v in all_msgs.values():
-                    if (v.get("u") == me and v.get("d") == dest) or (v.get("u") == dest and v.get("d") == me):
-                        color = s['accent'] if v['u'] == me else "#444"
-                        align = "right" if v['u'] == me else "left"
-                        st.markdown(f"<div style='text-align:{align};'><span style='background:{color}; padding:10px; border-radius:10px; display:inline-block; margin:2px;'>{v['m']}</span></div>", unsafe_allow_html=True)
-            
-            m_in = st.text_input("Message...", key="m_in")
-            if st.button("ENVOYER 🚀"):
-                requests.post(URL_MSG, json={"u": me, "m": m_in, "d": dest, "t": time.time()})
-                st.rerun()
-
-    elif st.session_state.page == "Settings":
-        st.title("⚙️ Paramètres")
-        st.write("Plus d'options bientôt !")
-
-# Refresh auto rapide pour le lancement
-time.sleep(3)
-st.rerun()
+# Suppression du rafraîchissement auto sauvage qui fait bugger le tout
+# Si tu veux voir les nouveaux messages, clique sur le bouton de la page ou rafraîchis manuellement.
