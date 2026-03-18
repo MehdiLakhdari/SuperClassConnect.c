@@ -2,214 +2,148 @@ import streamlit as st
 import requests
 import time
 
-# --- 1. CONFIGURATION PLEIN ÉCRAN & DESIGN ---
+# 1. CONFIGURATION ÉCRAN PRO
 st.set_page_config(page_title="Connect Class Algeria", page_icon="⚽", layout="wide")
 
+# 2. DESIGN FIXE (SANS CLIGNOTEMENT)
 st.markdown("""
     <style>
-    /* Super Plein Écran */
     header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
     .stApp { background-color: #0e1117; color: white; }
     
-    /* LOGO ORANGE PRO */
+    /* LOGO ORANGE CARRÉ */
     .logo-box {
-        background: linear-gradient(135deg, #FF8C00 0%, #FF4500 100%);
-        width: 60px; height: 60px; border-radius: 15px;
+        background: linear-gradient(135deg, #FF8C00, #FF4500);
+        width: 65px; height: 65px; border-radius: 15px;
         display: flex; align-items: center; justify-content: center;
         margin: 0 auto; font-size: 40px; font-weight: bold; color: white;
-        box-shadow: 0 5px 15px rgba(255, 69, 0, 0.3);
     }
-    .logo-text { 
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 22px; font-weight: bold; color: #FF8C00; 
-        text-align: center; margin-top: 5px; text-transform: uppercase;
-    }
+    .logo-text { font-size: 20px; font-weight: bold; color: #FF8C00; text-align: center; margin-top: 5px; }
 
-    /* BOUTONS STABLES */
+    /* BOUTONS ET CARTES */
     .stButton>button { 
         background: linear-gradient(90deg, #FF8C00, #FF4500) !important; 
-        color: white !important; border-radius: 10px; border: none; 
-        font-weight: bold; width: 100%; height: 40px; transition: 0.2s;
+        color: white !important; border-radius: 10px; border: none; font-weight: bold;
     }
-    .stButton>button:hover { transform: scale(1.03); box-shadow: 0 4px 12px rgba(255, 69, 0, 0.4); }
-    
-    /* CARTES DU MUR */
-    .msg-card { 
-        background: #1c1f26; padding: 15px; border-radius: 12px; 
-        margin-bottom: 15px; border-left: 5px solid #FF8C00;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    /* Bulles de Chat */
-    .chat-bubble { padding: 10px; border-radius: 12px; display: inline-block; margin: 5px; max-width: 80%; }
-    .bubble-me { background-color: #FF8C00; color: white; float: right; }
-    .bubble-them { background-color: #333; color: white; float: left; }
+    .msg-card { background: #1c1f26; padding: 15px; border-radius: 12px; border-left: 5px solid #FF8C00; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. INITIALISATION & CACHE ---
+# 3. BASE DE DONNÉES
 URL_BASE = "https://classconect-f1767-default-rtdb.europe-west1.firebasedatabase.app/"
 URL_MSG = f"{URL_BASE}messages.json"
 URL_USERS = f"{URL_BASE}utilisateurs.json"
 
+# INITIALISATION DES VARIABLES SANS BUG
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "Mur"
-if 'chat_with' not in st.session_state: st.session_state.chat_with = None
+if 'chat_target' not in st.session_state: st.session_state.chat_target = None
 
-# Cache de 10 secondes pour les données pour éviter le lag
-@st.cache_data(ttl=10)
-def charger(url):
+# FONCTION DE CHARGEMENT SÉCURISÉE
+def fetch_data(url):
     try:
-        r = requests.get(url, timeout=5)
-        return r.json() if r.status_code == 200 and r.json() else {}
+        r = requests.get(url, timeout=3)
+        return r.json() if r.status_code == 200 else {}
     except: return {}
 
-# --- 3. INTERFACE DE CONNEXION ---
-data_u = charger(URL_USERS)
+# --- LOGIQUE D'AFFICHAGE ---
 
+# A. SI PAS CONNECTÉ
 if st.session_state.user is None:
+    data_u = fetch_data(URL_USERS)
     st.markdown("<div class='logo-box'>C</div><div class='logo-text'>Class Connect Algeria</div>", unsafe_allow_html=True)
-    tab_log, tab_reg = st.tabs(["Connexion", "Inscription"])
     
-    with tab_log:
-        u = st.text_input("Pseudo", key="l_u")
-        p = st.text_input("Mot de passe", type="password", key="l_p")
-        if st.button("REJOINDRE LE CLUB"):
+    tab1, tab2 = st.tabs(["Connexion", "Inscription"])
+    with tab1:
+        u = st.text_input("Pseudo", key="login_user")
+        p = st.text_input("Mdp", type="password", key="login_pass")
+        if st.button("ENTRER", key="btn_login"):
             if u in data_u and str(data_u[u].get("mdp")) == str(p):
                 st.session_state.user = u
                 st.rerun()
-            else: st.error("Identifiants incorrects.")
-
-    with tab_reg:
-        nu = st.text_input("Choisis un Pseudo unique", key="n_u")
-        np = st.text_input("Choisis un Mot de passe", type="password", key="n_p")
-        club = st.selectbox("Ton Club de cœur", ["Paris SG", "Juventus", "Arsenal"])
-        if st.button("S'INSCRIRE & ENTRER DIRECTEMENT"):
+            else: st.error("Erreur d'identifiants")
+            
+    with tab2:
+        nu = st.text_input("Nouveau Pseudo", key="reg_user")
+        np = st.text_input("Nouveau Mdp", type="password", key="reg_pass")
+        club = st.selectbox("Club", ["Paris SG", "Juventus", "Arsenal"], key="reg_club")
+        if st.button("CRÉER COMPTE", key="btn_reg"):
             if nu and np:
-                # Création du compte avec club et liste d'amis vide
                 requests.patch(URL_USERS, json={nu: {"mdp": np, "club": club, "amis": {}}})
-                # Auto-login
                 st.session_state.user = nu
-                st.balloons()
                 st.rerun()
 
-# --- 4. INTERFACE PRINCIPALE (SIDEBAR + PAGES) ---
+# B. SI CONNECTÉ
 else:
     me = st.session_state.user
+    data_u = fetch_data(URL_USERS)
     my_club = data_u.get(me, {}).get("club", "Fan")
 
-    # BARRE LATÉRALE DE NAVIGATION ET CONTACTS
+    # SIDEBAR FIXE
     with st.sidebar:
-        st.markdown("<div class='logo-box' style='width:50px; height:50px; font-size:30px;'>C</div>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align:center;'>{me}</h3>", unsafe_allow_html=True)
-        st.write(f"⚽ Club : **{my_club}**")
+        st.markdown("<div class='logo-box'>C</div>", unsafe_allow_html=True)
+        st.write(f"Bonjour **{me}**")
         st.divider()
-        
-        # Navigation principale
-        if st.button("🏠 MUR MONDIAL", key="nav_mur"): 
-            st.session_state.page = "Mur"
-            st.rerun()
-        if st.button("⚙️ PARAMÈTRES", key="nav_param"): 
-            st.session_state.page = "Param"
-            st.rerun()
-        
+        if st.button("🏠 MUR MONDIAL", key="nav_mur"): st.session_state.page = "Mur"
+        if st.button("💬 MESSAGES PRIVÉS", key="nav_chat"): st.session_state.page = "Chat"
         st.divider()
-        st.write("👤 **Discussions Directes**")
-        
-        # Recherche/Ajout de contact
-        new_contact = st.text_input("Ajouter un pseudo exact", key="add_contact")
-        if st.button("Lancer Chat", key="btn_add_contact"):
-            if new_contact in data_u and new_contact != me:
-                # Ajouter à la liste d'amis dans Firebase
-                requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={new_contact: True})
-                st.session_state.chat_with = new_contact
-                st.session_state.page = "Chat"
-                st.rerun()
-            else: st.error("Utilisateur introuvable.")
-
-        # Liste des contacts existants
+        st.write("👥 **Amis**")
         mes_amis = data_u.get(me, {}).get("amis", {})
-        if mes_amis:
-            for ami in mes_amis.keys():
-                if st.button(f"Chat : {ami}", key=f"chat_{ami}"):
-                    st.session_state.chat_with = ami
-                    st.session_state.page = "Chat"
-                    st.rerun()
+        for ami in mes_amis:
+            if st.button(f"👤 {ami}", key=f"btn_chat_{ami}"):
+                st.session_state.chat_target = ami
+                st.session_state.page = "Chat"
+        
+        # Ajouter un ami
+        new_f = st.text_input("Ajouter un pseudo", key="add_friend_input")
+        if st.button("Ajouter", key="btn_add_friend"):
+            if new_f in data_u and new_f != me:
+                requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={new_f: True})
+                st.rerun()
         
         st.divider()
-        if st.button("🚪 DÉCONNEXION", key="nav_logout"):
+        if st.button("🚪 Déconnexion", key="btn_logout"):
             st.session_state.user = None
-            st.session_state.chat_with = None
             st.rerun()
 
-    # --- LOGIQUE DES PAGES ---
-    
-    # PAGE 1 : LE MUR AVEC IMAGES
+    # --- PAGES ---
     if st.session_state.page == "Mur":
         st.title("🏠 Mur Mondial")
-        with st.expander("📝 Publier (Texte + Image optionnelle)"):
-            txt = st.text_area("Légende de ton post...")
-            img_url = st.text_input("Lien URL de ton image (ex: ImgBB, PostImage)")
-            if st.button("POSTER 🚀", key="btn_post_mur"):
-                if txt or img_url:
-                    requests.post(URL_MSG, json={"u": me, "c": my_club, "m": txt, "i": img_url, "d": "mondial", "t": time.time()})
-                    # On force le rechargement du cache
-                    st.cache_data.clear()
-                    st.rerun()
+        with st.expander("📝 Nouveau Post"):
+            txt = st.text_area("Message", key="post_txt")
+            img = st.text_input("Lien Image (URL)", key="post_img")
+            if st.button("PUBLIER", key="btn_post"):
+                requests.post(URL_MSG, json={"u": me, "c": my_club, "m": txt, "i": img, "d": "mondial", "t": time.time()})
+                st.rerun()
         
-        msgs = charger(URL_MSG)
+        msgs = fetch_data(URL_MSG)
         if msgs:
             for k in reversed(list(msgs.keys())):
                 v = msgs[k]
                 if v.get("d") == "mondial":
-                    st.markdown(f"""
-                        <div class='msg-card'>
-                            <b style='color:#FF8C00;'>@{v['u']}</b> <small>({v.get('c','Fan')})</small><br>
-                            <p style='margin-top:10px; font-size:16px;'>{v.get('m','')}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    # Affichage de l'image si elle existe
-                    if v.get("i"):
-                        st.image(v["i"], use_container_width=True)
-                    st.divider()
+                    st.markdown(f"<div class='msg-card'><b>{v['u']}</b> ({v.get('c','Fan')})<br>{v.get('m','')}</div>", unsafe_allow_html=True)
+                    if v.get("i"): st.image(v["i"], use_container_width=True)
 
-    # PAGE 2 : LE CHAT PRIVÉ
     elif st.session_state.page == "Chat":
-        target = st.session_state.chat_with
+        st.title("💬 Messagerie")
+        target = st.session_state.chat_target
         if target:
-            st.title(f"💬 Chat avec {target}")
-            
-            # Flux messages
-            msgs = charger(URL_MSG)
-            st.markdown("<div style='overflow-y: auto; height: 400px;'>", unsafe_allow_html=True)
+            st.subheader(f"Discussion avec {target}")
+            msgs = fetch_data(URL_MSG)
             if msgs:
                 for k, v in msgs.items():
                     if (v.get("u") == me and v.get("d") == target) or (v.get("u") == target and v.get("d") == me):
-                        side = "me" if v['u'] == me else "them"
-                        cls = "bubble-me" if side == "me" else "bubble-them"
-                        # Correction de l'alignement pour les bulles
-                        st.markdown(f"<div style='text-align: {'right' if side == 'me' else 'left'};'><div class='chat-bubble {cls}'>{v['m']}</div></div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+                        align = "right" if v['u'] == me else "left"
+                        color = "#FF8C00" if v['u'] == me else "#333"
+                        st.markdown(f"<div style='text-align:{align};'><span style='background:{color}; padding:10px; border-radius:10px; display:inline-block; margin:5px;'>{v['m']}</span></div>", unsafe_allow_html=True)
             
-            # Envoi
-            msg_in = st.text_input("Écrire...", key="chat_in_msg")
-            if st.button("ENVOYER 📩", key="btn_send_chat"):
-                if msg_in:
-                    requests.post(URL_MSG, json={"u": me, "m": msg_in, "d": target, "t": time.time()})
-                    st.cache_data.clear()
-                    st.rerun()
+            m_in = st.text_input("Écrire...", key="input_chat")
+            if st.button("ENVOYER", key="btn_send"):
+                requests.post(URL_MSG, json={"u": me, "m": m_in, "d": target, "t": time.time()})
+                st.rerun()
         else:
-            st.warning("Sélectionne un contact dans la barre latérale.")
+            st.info("Choisis un ami dans la barre latérale pour discuter.")
 
-    # PAGE 3 : PARAMÈTRES (Simple)
-    elif st.session_state.page == "Param":
-        st.title("⚙️ Paramètres")
-        st.write(f"Utilisateur : **{me}**")
-        st.write(f"Club : **{my_club}**")
-        # Tu pourras ajouter ici le changement de photo de profil plus tard
-
-# Refresh lent manuel pour la stabilité, mais cache de 10s pour charger()
+# RECHARGEMENT TOUTES LES 10 SECONDES (PLUS LENT = PLUS STABLE)
 time.sleep(10)
 st.rerun()
