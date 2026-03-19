@@ -62,7 +62,7 @@ if st.session_state.user is None:
             if nu and np and nu not in data_u:
                 requests.patch(URL_USERS, json={nu: {"mdp": np, "amis": {"Admin": True}}})
                 st.success("Compte créé !")
-                time.sleep(1) # PARENTHÈSE CORRIGÉE ICI ✅
+                time.sleep(1)
                 st.rerun()
 else:
     me = st.session_state.user
@@ -113,4 +113,49 @@ else:
                     if v.get("i"): st.image(v["i"], use_container_width=True)
 
     elif st.session_state.page == "Chat":
-        ta_a, ta_i = st.tabs(["👥 AMIS
+        # LA LIGNE CORRIGÉE EST ICI ✅
+        ta_a, ta_i = st.tabs(["👥 AMIS", f"📩 INCONNUS ({nb_inc})"])
+        
+        with ta_a:
+            col_l, col_r = st.columns([1, 2])
+            with col_l:
+                for a in mes_amis:
+                    if st.button(f"👤 {a}", key=f"f_{a}"):
+                        st.session_state.chat_target = a
+                        st.rerun()
+                st.divider()
+                nf = st.text_input("Pseudo à ajouter").strip()
+                if st.button("AJOUTER"):
+                    if nf in data_u:
+                        requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={nf: True})
+                        requests.patch(f"{URL_BASE}utilisateurs/{nf}/amis.json", json={me: True})
+                        st.rerun()
+            with col_r:
+                target = st.session_state.get("chat_target")
+                if target:
+                    st.subheader(f"Chat avec {target}")
+                    if all_m:
+                        for k, v in all_m.items():
+                            if (v.get("u")==me and v.get("d")==target) or (v.get("u")==target and v.get("d")==me):
+                                side = "right" if v['u']==me else "left"
+                                bg = "#D32F2F" if side=="right" else "#222"
+                                st.markdown(f"<div style='text-align:{side};'><span style='background:{bg}; padding:10px; border-radius:10px; display:inline-block; margin:5px;'>{v['m']}</span></div>", unsafe_allow_html=True)
+                    m_val = st.text_input("Message...", key="chat_in")
+                    if st.button("ENVOYER"):
+                        requests.post(URL_MSG, json={"u": me, "m": m_val, "d": target, "t": time.time()})
+                        st.rerun()
+
+        with ta_i:
+            if nb_inc > 0:
+                for inc in set(inc_list):
+                    st.markdown(f"<div class='msg-card'><b>@{inc}</b> veut te parler.</div>", unsafe_allow_html=True)
+                    if st.button(f"Accepter {inc}", key=f"acc_{inc}"):
+                        requests.patch(f"{URL_BASE}utilisateurs/{me}/amis.json", json={inc: True})
+                        requests.patch(f"{URL_BASE}utilisateurs/{inc}/amis.json", json={me: True})
+                        st.rerun()
+            else:
+                st.info("Aucun message d'inconnu.")
+
+if st.session_state.user:
+    requests.patch(f"{URL_BASE}utilisateurs/{me}.json", json={"last_seen": time.time()})
+time.sleep(5)
