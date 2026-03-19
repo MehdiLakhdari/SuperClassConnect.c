@@ -5,7 +5,7 @@ import time
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Connect Class", page_icon="😊", layout="wide")
 
-st.markdown("""
+st.markdown
     <style>
     header {visibility: hidden;}
     .stApp { background-color: #050505; color: white; }
